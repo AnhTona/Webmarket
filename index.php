@@ -2,3 +2,6 @@
 echo "Hello World!";
 if(print"Hello World!")
     echo "toan";
+
+else
+    echo "not toan";
