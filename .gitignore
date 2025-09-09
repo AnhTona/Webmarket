@@ -1,0 +1,18 @@
+cat > .gitignore << 'EOF'
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env & Logs
+.env
+*.log
+
+# Frontend
+node_modules/
+dist/
+EOF
+
