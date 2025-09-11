@@ -12,7 +12,7 @@
             }
             else{
                 return[
-                    'data' => ['username' => $username, 'password' => $password],
+                    'model' => ['username' => $username, 'password' => $password],
                 ];
             }
         }
