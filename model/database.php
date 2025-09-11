@@ -4,7 +4,7 @@ class Database {
     private int    $port = 3306;
     private string $user = "root";
     private string $pass = "";
-    private string $db   = "abc";
+    private string $db   = "web";
 
     protected ?PDO $conn = null;
 
