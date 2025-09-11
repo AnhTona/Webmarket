@@ -20,7 +20,7 @@
 			</div>
 		</div>
 		<img src="image/bg.jpg" class="bg">
-		<img src="image/truck.png" class="truck">
+		<img src="image/girl.png" class="girl">
 		<img src="image/trees.png" class="trees">
         <form method="POST" action="/controller/controller_register.php"></form>
             <div class="register">
@@ -36,6 +36,9 @@
                 </div>
                 <div class="inputBox">
                     <input type="submit" value="Đăng Ký" id="btn">
+                </div>
+                <div class="inputBox">
+                    <input type="submit" value="Đăng ký bằng Google" href="/Webmarket/auth/google_register.php" id="btn">
                 </div>
                 <div class="group">
                     <a href="#">Đăng Nhập</a>

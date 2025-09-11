@@ -34,6 +34,10 @@
                 <div class="inputBox">
                     <input type="submit" value="Login" id="btn">
                 </div>
+                <div class="inputBox">
+                    <input type="submit" value="Đăng Nhập bằng Google" href="/Webmarket/auth/google_login.php" id="btn">
+                </div>
+
                 <div class="group">
                     <a href="#">Forget Password</a>
                     <a href="#">Signup</a>

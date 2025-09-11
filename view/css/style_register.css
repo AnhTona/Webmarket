@@ -36,9 +36,9 @@ section .trees {
   pointer-events: none;
 }
 
-section .truck {
+section .girl {
   position: absolute;
-  scale: 0.35;
+  scale: 0.65;
   pointer-events: none;
   animation: animateGirl 10s linear infinite;
 }
