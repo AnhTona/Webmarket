@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 	<meta charset="UTF-8">
-	<title>Glassmorphism Login Page</title>
+	<title>Login Page</title>
 	<link rel="stylesheet" href="../css/style_login.css">
 </head>
 <body>
@@ -24,23 +24,23 @@
 		<img src="image/trees.png" class="trees">
         <form method="POST" action="/controller/controller_login.php"></form>
             <div class="login">
-                <h2>Sign In</h2>
+                <h2>Đăng Nhập</h2>
                 <div class="inputBox">
-                    <input type="text" placeholder="Username"
+                    <input type="text" placeholder="Tên Đăng Nhập..."
                 </div>
                 <div class="inputBox">
-                    <input type="password" placeholder="Password"
+                    <input type="password" placeholder="Mật Khẩu..."
                 </div>
                 <div class="inputBox">
-                    <input type="submit" value="Login" id="btn">
+                    <input type="submit" value="Đăng Nhập" id="btn">
                 </div>
                 <div class="inputBox">
                     <input type="submit" value="Đăng Nhập bằng Google" href="/Webmarket/auth/google_login.php" id="btn">
                 </div>
 
                 <div class="group">
-                    <a href="#">Forget Password</a>
-                    <a href="#">Signup</a>
+                    <a href="#">Quên Mật Khẩu</a>
+                    <a href="/Webmarket/view/html/register.php">Đăng Ký</a>
                 </div>
             </div>
 	</section>

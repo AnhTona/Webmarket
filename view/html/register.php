@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 	<meta charset="UTF-8">
-	<title>Glassmorphism Register Page</title>
+	<title>Register Page</title>
 	<link rel="stylesheet" href="../css/style_register.css">
 </head>
 <body>
@@ -41,7 +41,7 @@
                     <input type="submit" value="Đăng ký bằng Google" href="/Webmarket/auth/google_register.php" id="btn">
                 </div>
                 <div class="group">
-                    <a href="#">Đăng Nhập</a>
+                    <a href="/Webmarket/view/html/login.php">Đăng Nhập</a>
                 </div>
             </div>
 	</section>

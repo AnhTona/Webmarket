@@ -133,10 +133,6 @@ section .girl {
   text-decoration: none;
 }
 
-.login .group a:nth-child(2) {
-  text-decoration: underline;
-}
-
 .leaves {
   position: absolute;
   width: 100%;
