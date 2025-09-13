@@ -26,20 +26,20 @@
             <div class="login">
                 <h2>Đăng Nhập</h2>
                 <div class="inputBox">
-                    <input type="text" placeholder="Tên Đăng Nhập..."
+                    <input type="text" placeholder="Tên đăng nhập..."
                 </div>
                 <div class="inputBox">
-                    <input type="password" placeholder="Mật Khẩu..."
+                    <input type="password" placeholder="Mật khẩu..."
                 </div>
                 <div class="inputBox">
-                    <input type="submit" value="Đăng Nhập" id="btn">
+                    <input type="submit" value="Đăng nhập" id="btn">
                 </div>
                 <div class="inputBox">
-                    <input type="submit" value="Đăng Nhập bằng Google" href="/Webmarket/auth/google_login.php" id="btn">
+                    <input type="submit" value="Đăng nhập bằng Google" href="/Webmarket/auth/google_login.php" id="btn">
                 </div>
 
                 <div class="group">
-                    <a href="#">Quên Mật Khẩu</a>
+                   <a href="/Webmarket/view/html/forgot_password.php">Quên mật khẩu?</a>
                     <a href="/Webmarket/view/html/register.php">Đăng Ký</a>
                 </div>
             </div>
