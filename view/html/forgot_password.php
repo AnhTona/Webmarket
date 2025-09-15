@@ -47,7 +47,7 @@
             </div>
         </div>
 
-        <!-- Modal cho CAPTCHA kéo trượt -->
+        <!-- Model cho CAPTCHA kéo trượt -->
         <div id="captchaModal" class="modal">
             <div class="modal-content">
                 <a href="#" class="back-button">&larr;</a>
