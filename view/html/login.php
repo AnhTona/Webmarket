@@ -22,7 +22,7 @@
 		<img src="image/bg.jpg" class="bg">
 		<img src="image/girl.png" class="girl">
 		<img src="image/trees.png" class="trees">
-        <form method="POST" action="/controller/controller_login.php"></form>
+        <form method="POST" action="/Webmarket/controller/controller_login.php"></form>
             <div class="login">
                 <h2>Đăng Nhập</h2>
                 <div class="inputBox">
