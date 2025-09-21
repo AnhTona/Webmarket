@@ -88,38 +88,38 @@ section .girl {
   position: relative;
 }
 
+/* Base style cho cả 2 nút */
 .login .inputBox input {
   position: relative;
   width: 100%;
   padding: 15px 20px;
   outline: none;
   font-size: 1.25em;
-  color: #8f2c24;
   border-radius: 5px;
-  background: #fff;
   border: none;
-  margin-bottom: 30px;
-}
-
-.login .inputBox ::placeholder {
-  color: #8f2c24;
-}
-
-.login .inputBox #btn {
-  position: relative;
-  border: none;
-  outline: none;
-  background: #8f2c24;
-  color: #fff;
   cursor: pointer;
-  font-size: 1.25em;
   font-weight: 500;
-  transition: 0.5s;
+  transition: 0.3s;
+  margin-bottom: 0.5px; /* giảm khoảng cách giữa 2 nút */
+  color: #fff;
 }
 
-.login .inputBox #btn:hover {
-  background: #d64c42;
+/* Nút Google */
+.btn-google {
+  background: #db4437; /* đỏ Google */
 }
+.btn-google:hover {
+  background: #c23321;
+}
+
+/* Nút Facebook */
+.btn-facebook {
+  background: #4267B2; /* xanh Facebook */
+}
+.btn-facebook:hover {
+  background: #365899;
+}
+
 
 .login .group {
   display: flex;

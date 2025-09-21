@@ -16,4 +16,5 @@ node_modules/
 dist/
 EOF
 
-config.php
+config_facebook.php
+config_google.php
