@@ -1,0 +1,10 @@
+.product-detail { display: flex; gap: 40px; padding: 40px; }
+.product-detail .image img { width: 350px; border-radius: 10px; }
+.product-detail .info h2 { font-size: 2em; margin-bottom: 10px; }
+.product-detail .info .price { color: #d64c42; font-size: 1.5em; margin-bottom: 20px; }
+.product-detail .info button {
+  padding: 12px 20px; background: #8f2c24;
+  color: #fff; border: none; border-radius: 5px;
+  cursor: pointer;
+}
+.product-detail .info button:hover { background: #d64c42; }

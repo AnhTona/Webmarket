@@ -1,0 +1,861 @@
+/* Reset */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family:'Trebuchet MS', sans-serif;
+}
+
+body {
+    background: #fffaf3;
+    color: #333;
+    line-height: 1.5;
+}
+
+/* ===== HEADER (Giữ nguyên) ===== */
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 50px;
+    background: #fffaf3;
+    border-bottom: 1px solid #eee;
+}
+
+.header .logo img {
+    height: 55px;
+}
+
+.header nav ul {
+    display: flex;
+    list-style: none;
+}
+
+.header nav ul li {
+    margin: 0 15px;
+}
+
+.header nav ul li a {
+    text-decoration: none;
+    color: #666;
+    font-weight: 500;
+    padding: 8px 15px;
+    border-radius: 5px;
+    transition: all 0.3s ease;
+}
+
+/* Hover */
+.header nav ul li a:hover {
+    color: #8f2c24;
+}
+
+/* Icons */
+.header .icons a {
+    margin-left: 15px;
+    color: #666;
+    font-size: 1.2em;
+    transition: 0.3s;
+}
+.header .icons a:hover {
+    color: #8f2c24;
+}
+
+/* ===== HERO SLIDER (Giữ nguyên) ===== */
+.hero {
+    position: relative;
+    height: 85vh;
+    overflow: hidden;
+}
+
+.slider {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+.slides {
+    width: 100%;
+    height: 100%;
+    position: relative;
+}
+
+.slide {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%;
+    height: 100%;
+    background-size: cover;
+    background-position: center;
+    opacity: 0;
+    transition: opacity 1s ease-in-out;
+}
+
+.slide.active {
+    opacity: 1;
+    z-index: 1;
+}
+
+/* Nút điều hướng */
+.prev, .next {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(255, 255, 255, 0.7);
+    border: none;
+    font-size: 2em;
+    padding: 5px 12px;
+    cursor: pointer;
+    border-radius: 50%;
+    z-index: 3;
+    transition: 0.3s;
+}
+
+.prev:hover, .next:hover {
+    background: rgba(255,255,255,0.9);
+}
+
+.prev { left: 20px; }
+.next { right: 20px; }
+
+/* ===== FEATURED PRODUCTS (Giữ nguyên) ===== */
+.featured {
+    padding: 50px;
+    text-align: center;
+}
+
+.featured h2 {
+    margin-bottom: 20px;
+    color: #8f2c24;
+}
+
+.product-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill,minmax(220px,1fr));
+    gap: 30px;
+    margin-top: 30px;
+}
+
+.product-card {
+    position: relative;
+    background: #fff;
+    border-radius: 15px;
+    overflow: hidden;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+    transition: transform 0.3s;
+}
+
+.product-card:hover {
+    transform: translateY(-5px);
+}
+
+.product-card img {
+    width: 100%;
+    height: 400px;
+    object-fit: cover;
+    transition: transform 0.4s ease;
+}
+
+.product-card:hover img {
+    transform: scale(1.08);
+}
+
+.product-card h3 {
+    margin: 10px 0;
+    color: #8f2c24;
+}
+/* Khối chứa giá và nút */
+.product-info {
+    position: relative;
+    min-height: 35px;
+    margin-bottom: 10px;
+}
+
+/* Giá sản phẩm */
+.price {
+    font-size: 1em;
+    font-weight: bold;
+    color:  #8f2c24;
+    margin: 5px 0;
+    transition: opacity 0.3s ease;
+}
+
+/* Nút thêm giỏ hàng */
+.btn-add {
+    display: none;
+    background: #8f2c24;
+    color: #fff;
+    padding: 8px 18px;
+    border-radius: 20px;
+    text-decoration: none;
+    font-size: 0.9em;
+    font-weight: 500;
+    white-space: nowrap;
+    transition: all 0.3s ease;
+    margin-bottom: 15px;
+}
+
+/* Hover: ẩn giá, hiện nút ngay dưới tên */
+.product-card:hover .price {
+    display: none;
+}
+
+.product-card:hover .btn-add {
+    display: inline-block;
+}
+
+
+
+/* Nút Xem Thêm */
+.btn-more {
+    display: inline-block;
+    margin-top: 50px; /* Khoảng cách với lưới sản phẩm */
+    padding: 12px 30px;
+    background:#8f2c24; /* Màu nền chủ đạo */
+    color: white; 
+    text-decoration: none;
+    font-size: 1.1em;
+    font-weight: bold;
+    border-radius: 12px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.btn-more:hover {
+    background: #4d0702; /* Màu đậm hơn khi hover */
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.2);
+    transform: translateY(-2px);
+}
+
+
+
+/* ===== WHY CHOOSE US (Đã sửa) ===== */
+.why-choose {
+    position: relative;
+    width: 100%;
+    height: 90vh; /* nhỏ gọn hơn */
+    overflow: hidden;
+}
+
+.content-wrapper {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+/* Ảnh nền */
+.text-box {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center;
+    opacity: 0;
+    transition: opacity 0.7s ease;
+    z-index: 1;
+}
+
+.text-box.active {
+    opacity: 1;
+    z-index: 2;
+}
+
+/* Overlay tối (Đã chỉnh để tối hơn, nổi bật chữ) */
+.text-box .overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.523); /* Tăng độ đậm lên 0.8 */
+}
+
+/* Box chữ căn giữa */
+.text-box .text {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: auto;
+    max-width: 600px;
+    padding: 0;
+    background: none;
+    border-radius: 0;
+    box-shadow: none;
+    text-align: center;
+    color: #fff;
+    opacity: 0;
+    transition: all 0.5s ease;
+}
+
+.text-box.active .text {
+    opacity: 1;
+}
+
+/* Định dạng tiêu đề lớn (Đã sửa) */
+.text-box .text .box-title { 
+    font-size: 3.0em; /* Cỡ chữ to hơn */
+    font-weight: 700; /* In đậm hơn */
+    margin-bottom: 20px; /* Tăng khoảng cách dưới tiêu đề */
+    color: #fff; /* Chữ trắng để nổi bật trên nền tối */
+    text-shadow: 0 0 10px rgba(0,0,0,0.8); /* Thêm đổ bóng nhẹ cho tiêu đề */
+    letter-spacing: 1px;
+    line-height: 1.2;
+}
+
+/* Định dạng cho đoạn mô tả (Đã sửa) */
+.text-box .text p {
+    font-size: 1.5em; /* Tăng kích thước chữ mô tả */
+    font-weight: 300; 
+    color: #fff; /* Chữ trắng */
+    margin-top: 0;
+    line-height: 1.5;
+}
+
+/* ===== NUMBERS (Giữ nguyên) ===== */
+.why-numbers {
+    position: absolute;
+    top: 50%;
+    left: 60px;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+    z-index: 2;
+}
+
+.why-numbers span {
+    font-size: 2em;
+    font-weight: bold;
+    color: rgba(255,255,255,0.6);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+/* Gạch ngang nằm sau số */
+.why-numbers span::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 100%;
+    transform: translateY(-50%);
+    width: 40px;
+    height: 2px;
+    background: rgba(255,255,255,0.4);
+    margin-left: 15px;
+    transition: all 0.3s ease;
+}
+
+/* Hover + Active */
+.why-numbers span.active,
+.why-numbers span:hover {
+    font-size: 3em;
+    color: #fff;
+    transform: translateX(10px);
+}
+
+.why-numbers span.active::after,
+.why-numbers span:hover::after {
+    background: #fff;
+    width: 80px;
+}
+
+
+/* ===== PROMO PRODUCTS (SẢN PHẨM KHUYẾN MÃI - Đã chỉnh sửa) ===== */
+
+/* Đảm bảo phần khuyến mãi cách biệt với phần trước */
+.promo-section {
+    margin-top: 10px; /* Tăng khoảng cách để tách biệt với section trước */
+    padding-bottom: 80px; /* Thêm padding ngang vì carousel không dùng grid toàn màn hình */
+    padding-left: 0;
+    padding-right: 0;
+}
+
+/* Container bọc slider và nút */
+.product-slider-container {
+    position: relative;
+    max-width: 90%; /* Giới hạn chiều rộng để tạo khoảng trống 2 bên */
+    margin: 0 auto;
+}
+
+/* Khung cuộn ngang */
+.product-slider-wrapper { /* Cho phép cuộn ngang (scroll) */
+    overflow-x: auto; 
+    /* Ẩn thanh cuộn */
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
+    padding-bottom: 20px; /* Thêm padding cho thanh cuộn */
+}
+/* Ẩn thanh cuộn cho Webkit */
+.product-slider-wrapper::-webkit-scrollbar {
+    display: none; 
+}
+
+/* Lưới sản phẩm cuộn ngang */
+.product-slider {
+    display: flex;
+    flex-wrap: nowrap; /* Ngăn các mục bị ngắt dòng */
+    gap: 30px;
+    padding: 30px 50px 0 50px; /* Thêm padding ngang để items không dính sát viền */
+    transition: transform 0.3s ease-in-out; /* Dành cho js cuộn bằng transform nếu cần */
+}
+
+/* Điều chỉnh kích thước thẻ sản phẩm trong slider */
+.promo-card {
+    min-width: 280px; /* Kích thước tối thiểu cho mỗi card để dễ xem */
+    max-width: 280px; /* Kích thước tối đa cố định */
+    flex-shrink: 0; /* Quan trọng: ngăn card bị co lại */
+}
+
+/* Nút điều hướng Carousel */
+.carousel-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 5;
+    background: rgba(143, 44, 36, 0.85); /* Màu đỏ đậm chủ đạo */
+    color: #fff;
+    border: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 1.2em;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
+.carousel-btn:hover {
+    background: #8f2c24; /* Tăng độ đậm khi hover */
+    transform: translateY(-50%) scale(1.05);
+}
+
+.prev-promo {
+    left: 0;
+}
+
+.next-promo {
+    right: 0;
+}
+
+
+/* Hiệu ứng giảm giá */
+.discount-badge {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    background: #8f2c24; /* Màu đỏ đậm chủ đạo */
+    color: #fff;
+    font-weight: bold;
+    padding: 5px 10px;
+    border-radius: 5px;
+    z-index: 10;
+    font-size: 0.9em;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+/* Giá gốc */
+.old-price {
+    font-size: 0.9em;
+    color: #999;
+    text-decoration: line-through; /* Gạch ngang giá gốc */
+    margin-bottom: 0;
+    line-height: 1;
+    transition: opacity 0.3s ease;
+}
+
+/* Giá khuyến mãi */
+.promo-price {
+    color: #8f2c24; /* Màu đỏ đậm nổi bật giá mới */
+    font-size: 1.1em;
+    font-weight: 700;
+}
+
+/* Điều chỉnh phần info để chứa cả 2 giá */
+.promo-card .product-info {
+    min-height: 55px; /* Tăng chiều cao để chứa 2 dòng giá */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 10px;
+}
+
+/* Đảm bảo giá cũ biến mất khi hover (để nút hiện ra) */
+.product-card:hover .old-price {
+    display: none;
+}
+/* Đảm bảo giá khuyến mãi biến mất khi hover */
+.product-card:hover .promo-price {
+    display: none;
+}
+
+
+/* 2. INSPIRATION SECTION (PHẦN MỚI) */
+
+.inspiration-section {
+    padding: 0px 5%;
+    background-color: #f8f8f8; /* Màu nền nhẹ nhàng */
+    text-align: center;
+  
+}
+
+.inspiration-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 2.2em;
+    color: #8f2c24;
+    margin-bottom: 50px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.inspiration-grid {
+    display: flex;
+    justify-content: center;
+    gap: 40px; /* tăng khoảng cách giữa các ảnh (mặc định 30px) */ 
+    margin-bottom: 40px;
+}
+
+.inspiration-card {
+    display: block; /* Quan trọng để thẻ <a> hoạt động như block */
+    max-width: 380px;
+    text-align: left;
+    text-decoration: none;
+    color: #333;
+    transition: transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
+}
+
+.inspiration-card:hover {
+    transform: translateY(-5px); /* Hiệu ứng nhấc lên nhẹ nhàng */
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+}
+
+.card-image-wrapper {
+    overflow: hidden;
+    position: relative;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    aspect-ratio: 3/4; /* Tỉ lệ khung hình đẹp cho ảnh ngang */
+     box-shadow: 0 6px 15px rgba(0,0,0,0.08); /* thêm bóng nhẹ cho khung ảnh */
+}
+
+.card-image-wrapper img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.6s ease; /* Hiệu ứng chuyển động mượt */
+   
+}
+
+/* Hiệu ứng phóng to hình ảnh khi hover */
+.inspiration-card:hover .card-image-wrapper img {
+    transform: scale(1.05);
+}
+
+.step-number {
+    position: absolute;
+    top: 15px;
+    left: 15px;
+    font-family: 'Playfair Display', serif;
+    font-size: 3em;
+    font-weight: 600;
+    color: #fff;
+    opacity: 0.8;
+    text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.5);
+    line-height: 1;
+}
+
+.card-content h3 {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.5em;
+    color: #8f2c24; /* Màu đậm cho tiêu đề */
+    margin-bottom: 10px;
+}
+
+.card-content p {
+    font-size: 1em;
+    color: #666;
+    line-height: 1.6;
+     margin-bottom: 50px;
+}
+
+
+/* 3. HIỆU ỨNG CHUNG CHO SẢN PHẨM (Tối ưu) */
+
+
+/* Thiết lập lại cấu trúc product-card để bọc toàn bộ nội dung trong .product-link (trừ nút thêm vào giỏ) */
+
+.product-card .product-link {
+    display: block; /* Cho phép áp dụng transform và overflow */
+    text-decoration: none;
+    color: inherit;
+    overflow: hidden; /* Cắt phần ảnh bị phóng to ngoài khung */
+    border-radius: 8px 8px 0 0; /* Bo góc trên */
+}
+
+/* Thay thế hiệu ứng hover ảnh */
+.product-card .product-link img {
+    transition: transform 0.6s ease;
+}
+
+.product-card:hover .product-link img {
+    transform: scale(1.1); /* Phóng to ảnh khi hover card */
+}
+
+/* Giữ nguyên định dạng nút "Xem thêm" */
+.btn-more {
+    /* ... CSS hiện tại của nút xem thêm ... */
+    display: inline-block;
+    padding: 12px 30px;
+    margin-top: 30px;
+    background-color: #8f2c24; /* Màu vàng cam của button Xem thêm */
+    color: white; /* Màu chữ */
+    text-decoration: none;
+    border-radius: 25px;
+    font-weight: bold;
+    transition: background-color 0.3s;
+}
+
+.btn-more:hover {
+    background-color: #e96f6f;
+}
+
+
+/* Điều chỉnh responsive (nếu cần) */
+@media (max-width: 992px) {
+    .inspiration-grid {
+        flex-direction: column;
+        align-items: center;
+    }
+}
+
+/* ==================================== */
+/* 4. FOOTER SECTION */
+/* ==================================== */
+/* FOOTER CHUNG */
+.main-footer {
+    background-color: #FDF9F3;
+    font-family: Arial, sans-serif;
+    color: #4A4A4A;
+    margin-top: 10px;       /* Tạo khoảng cách với section trên */
+    padding: 10px 0;        /* Padding trên–dưới */
+}
+
+.footer-content {
+    display: flex;
+    max-width: 1600px;
+    margin: 0 auto;
+    align-items: stretch;   /* Cột trái & phải cao bằng nhau */
+    min-height: 400px;      /* Giảm chiều cao footer */
+    margin-top: -50px;  /* Đẩy lên trên 10px */
+    
+}
+
+.footer-left {
+    flex: 0 0 45%;
+    padding-right: 10px;
+    display: flex;
+}
+
+.footer-shop-image-new {
+    width: 100%;
+    height: 100%;            
+    object-fit: cover;
+    border-radius: 0 200px 0px 0;  
+    max-height: 700px;       /* Chiều cao ảnh khớp với footer */
+
+    
+    
+}
+
+/* ========================== */
+/* CỘT BÊN PHẢI */
+/* ========================== */
+.footer-right {
+    flex: 0 0 55%;
+    padding: 30px 4%;        
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+/* ========================== */
+/* TAM GIÁC & HOVER ẢNH */
+/* ========================== */
+.triangle-container {
+    display: flex;
+    gap: 50px;
+    position: relative;
+    z-index: 1;
+}
+
+.triangle {
+    width: 40px;
+    height: 50px;
+    background-color: transparent;
+    border: 2px solid #8f2c24;
+    transform: rotate(20deg) skew(20deg);
+    border-radius: 0 50% 0 50%;
+    position: relative;
+    cursor: pointer;
+    overflow: visible;
+    transition: border 0.3s ease;
+     margin-bottom: 20px;
+
+}
+
+.triangle img {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 100px;
+    height: 100px;
+    transform: translate(-50%, -50%) rotate(-20deg) skew(-20deg);
+    opacity: 0;
+    z-index: 5;
+    pointer-events: none;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.triangle:hover {
+    border: none;
+}
+
+.triangle:hover img {
+    opacity: 1;
+    transform: translate(-50%, -50%) rotate(-20deg) skew(-20deg) scale(1.05);
+}
+
+/* ========================== */
+/* PHẦN THÔNG TIN */
+/* ========================== */
+.footer-info-grid {
+    display: flex;
+    margin-bottom: 0px;     
+    padding-left: 20px;
+    gap: 35px;               
+}
+
+.info-block h3 {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.4em;
+    color: #8f2c24;
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+
+.info-block p {
+    font-size: 0.9em;
+    line-height: 1.8;
+    color: #666;
+    margin-bottom: 5px;
+
+}
+
+.footer-info-grid .info-block:nth-child(2) {
+    margin-left: 30px;   /* Nhích sang phải 20px, bạn có thể tăng/giảm */
+  
+}
+
+
+.footer-contact-info {
+    display: flex;
+    gap: 40px;               
+    margin-bottom: 30px;     
+    padding-left: 20px;
+    margin-top: 30px;
+     margin-left: 70px; /* Nhích sang phải */
+    
+}
+
+.email-item {
+    margin-left: 80px; /* Nhích sang phải */
+}
+
+.contact-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+    color: #8f2c24;
+    border: 1px solid #8f2c24;
+    border-radius: 25px;
+    padding: 10px 20px;
+    transition: all 0.3s ease;
+    font-size: 1.2em;
+}
+
+.contact-item:hover {
+    background-color: #8f2c24;
+    color: #fff;
+}
+
+.footer-signature {
+    margin-bottom: 20px;
+     padding-left: 200px;   /* Đẩy toàn bộ sang phải */
+}
+
+.footer-signature p {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.2em;
+    color: #8f2c24;
+    margin-bottom: 30px;
+    padding-left: 30px;
+}
+.company-details {
+       font-family: 'Playfair Display', serif;
+    font-size: 0.9em;
+    line-height: 1.8;
+    color: #666;
+    margin-bottom: 50px;
+    padding-left: 100px;   /* dịch qua phải nhiều hơn */
+}
+
+.company-details p:first-child strong {
+       font-family: 'Playfair Display', serif;
+    font-weight: 900;     /* in đậm hơn */
+    color:#8f2c24;          /* cho màu đậm rõ ràng */
+    font-size: 1.2em;       /* có thể tăng size nhẹ */
+    padding-left: 120px;   /* dịch qua phải nhiều hơn */
+    font-weight: bold;
+}
+
+.bct-logo {
+    width: 150px;
+     margin-top: -30px;  /* Đẩy lên trên 10px */
+       margin-left: 150px; /* Nhích sang phải */
+}
+
+.footer-bottom-text {
+    text-align: center;
+    font-size: 0.8em;
+    color: #999;
+    padding-top: 20px;
+    border-top: 1px solid #e0e0e0;
+     margin-top: -50px;  /* Đẩy lên trên 10px */
+
+}
+footer.main-footer {
+    padding: 50px 0px 0;           /* bỏ padding dưới */
+    background-color: #fffaf5;      /* hoặc giữ màu bạn đang dùng */
+    border-top: 2px solid #d9d9d9; /* đường viền ngăn cách với phần trên */
+}
+/* icon giỏ hàng */
+.cart-icon {
+  position: relative;
+  font-size: 22px;
+  text-decoration: none;
+}
+
+.cart-count {
+  position: absolute;
+  top: -6px;
+  right: -10px;
+  background: red;
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
+  padding: 2px 6px;
+  border-radius: 50%;
+  display: none; /* mặc định ẩn */
+}
+
+
+

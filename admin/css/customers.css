@@ -1,0 +1,363 @@
+/* admin/css/customers.css */
+
+/* --- Tổng quan Admin Layout (Giả định) --- */
+body {
+    background: #f4f7f6; /* Màu nền nhẹ nhàng cho Admin */
+    color: #333;
+}
+
+.admin-wrapper {
+    display: flex;
+    min-height: 100vh;
+}
+
+/* Sidebar (Menu điều hướng) */
+.sidebar {
+    width: 250px;
+    background: #34495e; /* Màu nền tối cho Sidebar */
+    color: white;
+    padding: 20px 0;
+    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+}
+
+.sidebar .logo {
+    text-align: center;
+    font-size: 1.5em;
+    font-weight: bold;
+    margin-bottom: 30px;
+    color: #f39c12; /* Màu cam/vàng nhấn mạnh */
+}
+
+.sidebar nav ul {
+    list-style: none;
+    padding: 0;
+}
+
+.sidebar nav ul li a {
+    display: block;
+    padding: 15px 20px;
+    color: white;
+    text-decoration: none;
+    transition: background 0.3s;
+}
+
+.sidebar nav ul li a i {
+    margin-right: 10px;
+}
+
+.sidebar nav ul li a:hover,
+.sidebar nav ul li.active a {
+    background: #2c3e50;
+    border-left: 5px solid #8f2c24; /* Màu nhấn chính */
+}
+
+/* Nội dung chính */
+.admin-content {
+    flex-grow: 1;
+    padding: 30px;
+}
+
+.content-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    border-bottom: 2px solid #ddd;
+    padding-bottom: 15px;
+}
+
+.content-header h1 {
+    font-family: 'Playfair Display', serif;
+    color: #8f2c24; /* Màu chủ đạo của thương hiệu */
+}
+
+/* --- Thanh Tìm Kiếm / Bộ Lọc --- */
+.filter-bar {
+    background: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    margin-bottom: 20px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    align-items: center;
+}
+
+.search-group {
+    display: flex;
+    flex-grow: 1;
+    min-width: 250px;
+}
+
+#search-input {
+    flex-grow: 1;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px 0 0 4px;
+    font-size: 1em;
+}
+
+.btn-search {
+    padding: 10px 15px;
+    background: #8f2c24;
+    color: white;
+    border: none;
+    border-radius: 0 4px 4px 0;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.btn-search:hover {
+    background: #7a251f;
+}
+
+.filter-group label {
+    font-weight: bold;
+    margin-right: 5px;
+    white-space: nowrap;
+}
+
+.filter-group select,
+.filter-group input[type="date"],
+.filter-group input[type="text"] {
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+.advanced-filters {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px dashed #eee;
+}
+
+.advanced-filters .filter-group {
+    flex: 1 1 200px;
+}
+
+.advanced-filters.hidden {
+    display: none;
+}
+
+/* --- Bảng Danh Sách Khách Hàng --- */
+.customer-table-container {
+    background: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    overflow-x: auto; /* Cuộn ngang nếu bảng quá rộng */
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+    font-size: 0.95em;
+}
+
+.data-table th, .data-table td {
+    padding: 12px 15px;
+    text-align: left;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.data-table th {
+    background-color: #f5f5f5;
+    color: #666;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.data-table tbody tr:hover {
+    background-color: #fff9f9;
+}
+
+/* Style cho Trạng thái */
+.status-badge {
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.85em;
+    font-weight: bold;
+}
+
+.status-active {
+    background-color: #e6f7ff;
+    color: #1890ff;
+}
+
+.status-inactive {
+    background-color: #fff1f0;
+    color: #f5222d;
+}
+
+/* Style cho Hạng Khách Hàng */
+.rank-gold { color: #f39c12; font-weight: bold; }
+.rank-silver { color: #bdc3c7; font-weight: bold; }
+.rank-bronze { color: #cd7f32; font-weight: bold; }
+.rank-moi { color: #3498db; }
+
+/* --- Nút Hành Động --- */
+.btn {
+    padding: 10px 15px;
+    border-radius: 4px;
+    border: none;
+    cursor: pointer;
+    font-size: 1em;
+    transition: all 0.3s;
+}
+
+.btn-primary {
+    background-color: #8f2c24;
+    color: white;
+}
+
+.btn-primary:hover {
+    background-color: #7a251f;
+}
+
+.btn-secondary {
+    background-color: #bdc3c7;
+    color: #333;
+}
+
+.btn-secondary:hover {
+    background-color: #aeb4b8;
+}
+
+.btn-action {
+    background: none;
+    border: none;
+    color: #34495e;
+    font-size: 1.1em;
+    margin: 0 5px;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.btn-action:hover {
+    color: #8f2c24;
+}
+
+/* --- Modal --- */
+.modal {
+    display: none; 
+    position: fixed; 
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0,0,0,0.4); 
+    padding-top: 60px;
+}
+
+.modal-content {
+    background-color: #fefefe;
+    margin: 5% auto; 
+    padding: 30px;
+    border: 1px solid #888;
+    width: 80%; 
+    max-width: 900px;
+    border-radius: 8px;
+    position: relative;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+}
+
+.close-button {
+    color: #aaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.close-button:hover,
+.close-button:focus {
+    color: #000;
+    text-decoration: none;
+}
+
+#modal-title {
+    color: #8f2c24;
+    border-bottom: 2px solid #eee;
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+}
+
+.form-section {
+    padding: 15px;
+    margin-bottom: 20px;
+    border: 1px solid #f0f0f0;
+    border-radius: 6px;
+}
+
+.form-section h3 {
+    color: #34495e;
+    margin-top: 0;
+    margin-bottom: 15px;
+}
+
+#customer-form {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.history-notes-section {
+    grid-column: 1 / -1; /* Chiếm hết chiều rộng */
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    font-weight: bold;
+    margin-bottom: 5px;
+    color: #555;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+
+.rank-display {
+    display: flex;
+    align-items: center;
+}
+
+.rank-display label {
+    margin-right: 10px;
+}
+
+.rank-badge {
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-weight: bold;
+    background-color: #f0f0f0;
+}
+
+.modal-actions {
+    text-align: right;
+    padding-top: 20px;
+    border-top: 1px solid #eee;
+    grid-column: 1 / -1;
+}
+
+#purchase-history {
+    background-color: #f7f7f7;
+    cursor: default;
+}

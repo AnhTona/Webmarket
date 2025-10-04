@@ -1,0 +1,153 @@
+/* view/css/search.css */
+
+/* --- TÙY CHỈNH HEADER ĐỂ CHỨA THANH SEARCH VÀ CÁC ICONS --- */
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 50px;
+    background: #fffaf3;
+    border-bottom: 1px solid #eee;
+    position: relative; /* Quan trọng cho autocomplete */
+    z-index: 1001;
+}
+
+.header .logo img {
+    height: 55px;
+}
+
+.header nav ul {
+    display: flex;
+    list-style: none;
+}
+
+.header nav ul li {
+    margin: 0 15px;
+}
+
+.header nav ul li a {
+    text-decoration: none;
+    color: #666;
+    font-weight: 500;
+    padding: 8px 15px;
+    border-radius: 5px;
+    transition: all 0.3s ease;
+}
+
+/* --- THANH TÌM KIẾM (SEARCH) --- */
+.search-container {
+    /* Đặt container search vào giữa nav và icons */
+    flex-grow: 1; 
+    max-width: 450px; /* Chiều rộng tối đa */
+    margin: 0 20px;
+    position: relative; /* Quan trọng cho Autocomplete */
+}
+
+.search-form {
+    display: flex;
+    border: 1px solid #c9c9c9; /* Viền thanh tìm kiếm */
+    border-radius: 20px; /* Bo tròn góc */
+    overflow: hidden;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05); /* Thêm chút bóng mờ */
+}
+
+#search-input {
+    flex-grow: 1;
+    border: none;
+    padding: 8px 15px;
+    font-size: 1em;
+    outline: none;
+    width: 100%; /* Đảm bảo input full width trong form */
+    background: transparent;
+}
+
+.search-submit-btn {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 8px 15px;
+    font-size: 1.1em;
+    color: #8f2c24; /* Màu chủ đạo */
+    transition: color 0.2s;
+    /* Loại bỏ border-left nếu có */
+}
+
+.search-submit-btn:hover {
+    color: #4d0702;
+}
+
+/* --- VÙNG GỢI Ý (AUTOCOMPLETE) --- */
+.autocomplete-results {
+    position: absolute;
+    top: 100%; /* Nằm ngay dưới thanh input */
+    left: 0;
+    width: 100%; /* Chiều rộng bằng container */
+    max-height: 250px;
+    overflow-y: auto;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-top: none;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+    border-radius: 0 0 10px 10px;
+    display: none;
+}
+
+.autocomplete-results a,
+.no-results {
+    display: block;
+    padding: 10px 15px;
+    text-decoration: none;
+    color: #333;
+    font-size: 0.95em;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.autocomplete-results a:hover {
+    background-color: #f7e6e5;
+    color: #8f2c24;
+}
+
+.no-results {
+    color: #8f2c24;
+    font-weight: bold;
+    text-align: center;
+    background-color: #fff;
+    padding: 10px;
+}
+
+/* --- ICONS (Giỏ hàng, User) --- */
+.icons {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.cart-icon {
+    position: relative;
+    font-size: 1.3em;
+    color: #666;
+    text-decoration: none;
+}
+
+.cart-count {
+    position: absolute;
+    top: -5px;
+    right: -10px;
+    background: #8f2c24;
+    color: #fff;
+    border-radius: 50%;
+    padding: 2px 6px;
+    font-size: 0.7em;
+    line-height: 1;
+    min-width: 18px;
+    text-align: center;
+    display: none; /* Hiển thị bằng JS */
+}
+
+.icons a:last-child {
+    font-size: 1.3em;
+    color: #666;
+}

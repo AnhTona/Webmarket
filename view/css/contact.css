@@ -1,0 +1,344 @@
+/* contact.css */
+
+/* --- Banner (Ảnh lớn) --- */
+.contact-banner {
+    background-size: cover;
+    background-position: center;
+    height: 600px; 
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: #fff;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.6);
+    margin-bottom: 50px;
+    position: relative;
+    /* Dùng background-attachment: fixed; nếu muốn hiệu ứng parallax */
+}
+
+.contact-banner::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.3); /* Lớp phủ đen nhẹ */
+}
+
+
+/* --- 4 Mục Thông tin Liên hệ --- */
+.contact-info-section {
+    max-width: 1200px;
+    margin: 0 auto 80px;
+    padding: 0 20px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr); /* 4 cột bằng nhau */
+    gap: 30px;
+    text-align: center;
+}
+
+.info-item {
+    padding: 30px 15px;
+    background: #fff;
+    border: 1px solid #f0f0f0;
+    border-radius: 10px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.info-item:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+}
+
+.info-item .icon {
+    font-size: 2.8em;
+    color: #8f2c24; /* Màu đỏ đậm/trà */
+    margin-bottom: 15px;
+}
+
+.info-item h3 {
+    font-size: 1.3em;
+    margin-bottom: 10px;
+    color: #4d0702;
+    font-family: 'Playfair Display', serif;
+}
+
+.info-item p {
+    font-size: 0.9em;
+    color: #555;
+    margin: 5px 0;
+}
+
+/* --- Google Map --- */
+.google-map-section {
+    text-align: center;
+    max-width: 100%; /* Chiếm toàn bộ chiều rộng (hoặc 1400px nếu muốn rộng hơn) */
+    margin: 0 auto 80px;
+    padding: 0;
+}
+
+.google-map-section h2 {
+    font-size: 2em;
+    margin-bottom: 25px;
+    color: #4d0702;
+    font-family: 'Playfair Display', serif;
+}
+
+.map-container {
+    width: 100%;
+    /* border: 5px solid #fff; */
+    /* box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); */
+    overflow: hidden;
+    position: relative;
+    height: 500px; 
+}
+
+.map-container iframe {
+    width: 100%;
+    height: 100%; /* Chiều cao của bản đồ */
+    border: none;
+    pointer-events: none; /* Vô hiệu hóa tương tác mặc định (Ctrl+Scroll/Kéo) */
+    transition: cursor 0.2s;
+}
+
+.map-container.interactive iframe {
+    pointer-events: auto;
+}
+
+/* Biểu tượng bàn tay khi tương tác */
+.map-container.interactive {
+    cursor: grab;
+    cursor: -webkit-grab;
+}
+
+
+
+/* --- Responsive --- */
+@media (max-width: 992px) {
+    .contact-info-section {
+        grid-template-columns: repeat(2, 1fr); /* 2 cột trên tablet */
+        gap: 20px;
+    }
+}
+
+@media (max-width: 576px) {
+    .contact-banner {
+        height: 250px;
+    }
+    .contact-banner h1 {
+        font-size: 2em;
+    }
+    .contact-info-section {
+        grid-template-columns: 1fr; /* 1 cột trên điện thoại */
+        gap: 15px;
+        margin-bottom: 40px;
+    }
+    .map-container {
+        height: 350px;
+    }
+}
+
+/* contact.css */
+
+/* ... (Phần CSS cho Banner, 4 Mục Info, và Google Map giữ nguyên) ... */
+
+
+/* --- Form Liên Hệ --- */
+.contact-form-section {
+    background: #fdfaf7; /* Màu nền nhẹ cho section */
+    padding: 60px 20px;
+    margin-bottom: 0; /* Loại bỏ margin-bottom để dính vào footer */
+}
+
+.contact-form-section h2 {
+    font-size: 2.2em;
+    font-family: 'Playfair Display', serif;
+    color: #4d0702;
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.form-wrapper {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 40px;
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 5px 25px rgba(0, 0, 0, 0.1);
+}
+
+.contact-form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.form-row {
+    display: flex;
+    width: 100%;
+    gap: 20px;
+}
+
+.form-group {
+    flex: 1; /* Cho phép các nhóm form trong 1 hàng chia đều không gian */
+    display: flex;
+    flex-direction: column;
+}
+
+.form-group.full-width {
+    flex: none;
+    width: 100%;
+}
+
+.contact-form label {
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #333;
+    font-size: 0.95em;
+}
+
+.contact-form input[type="text"],
+.contact-form input[type="email"],
+.contact-form input[type="tel"],
+.contact-form textarea {
+    width: 100%;
+    padding: 12px 15px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 1em;
+    transition: border-color 0.3s, box-shadow 0.3s;
+    background-color: #fafafa;
+}
+
+.contact-form input:focus,
+.contact-form textarea:focus {
+    border-color: #8f2c24;
+    box-shadow: 0 0 5px rgba(143, 44, 36, 0.2);
+    outline: none;
+}
+
+.contact-form textarea {
+    resize: vertical;
+}
+
+.btn-submit {
+    background: #8f2c24; /* Màu đỏ trà */
+    color: #fff;
+    border: none;
+    padding: 14px 25px;
+    border-radius: 6px;
+    font-size: 1.1em;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background-color 0.3s, transform 0.1s;
+    width: auto;
+    margin-right: 20px;
+}
+
+.btn-submit:hover {
+    background: #4d0702;
+    transform: translateY(-2px);
+}
+
+.submit-group {
+    display: flex;
+    align-items: center;
+    margin-top: 10px;
+}
+
+.required-note {
+    font-size: 0.85em;
+    color: #888;
+    margin-left: auto; /* Đẩy ghi chú sang phải */
+}
+
+/* --- Responsive cho Form --- */
+@media (max-width: 768px) {
+    .form-wrapper {
+        padding: 20px;
+    }
+
+    .form-row {
+        flex-direction: column;
+        gap: 0; /* Loại bỏ gap giữa các form group khi xếp dọc */
+    }
+
+    .form-group {
+        margin-bottom: 20px; /* Thêm khoảng cách dưới mỗi group */
+    }
+
+    .submit-group {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .btn-submit {
+        width: 100%;
+        margin-right: 0;
+        margin-bottom: 10px;
+    }
+
+    .required-note {
+        margin-left: 0;
+    }
+}
+
+/* contact.css */
+
+/* --- Form Liên Hệ --- */
+
+/* ... (Các style khác của .contact-form-section và .form-wrapper giữ nguyên) ... */
+
+/* Style cho nút ban đầu */
+.btn-submit {
+    /* Đã có từ câu trả lời trước */
+    background: #8f2c24; /* Màu đỏ trà */
+    color: #fff;
+    border: none;
+    padding: 14px 25px;
+    border-radius: 6px;
+    font-size: 1.1em;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.4s ease-in-out; /* Đặt transition cho tất cả thuộc tính */
+    width: auto;
+    margin-right: 20px;
+    
+    /* Thiết lập lại: Chế độ hiển thị flex để căn chỉnh */
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    position: relative; /* Quan trọng cho việc di chuyển mũi tên */
+    overflow: hidden; /* Che mũi tên khỏi khu vực nút */
+}
+
+/* Style cho biểu tượng mũi tên */
+.icon-arrow {
+    display: inline-block;
+    /* Đặt mũi tên ở vị trí ban đầu (bên phải nút) */
+    transform: translateX(10px); 
+    opacity: 0;
+    transition: all 0.4s ease-in-out; 
+    margin-left: 10px;
+}
+
+/* HIỆU ỨNG KHI HOVER */
+.btn-submit:hover {
+    background: #cf2f2f; 
+    color: #222; /* Chữ màu đen hoặc xám đậm */
+    transform: none; /* Bỏ transform: translateY(-2px); nếu đã đặt */
+}
+
+/* Mũi tên khi hover: Di chuyển vào giữa và hiển thị */
+.btn-submit:hover .icon-arrow {
+    transform: translateX(0); /* Di chuyển mũi tên vào vị trí chuẩn */
+    opacity: 1; /* Hiển thị */
+}
+
+/* Di chuyển nội dung chữ: Bạn có thể chọn di chuyển chữ hoặc không.
+   Nếu muốn chữ hơi lùi lại một chút (hiệu ứng "đẩy" nhẹ): 
+.btn-submit:hover {
+    padding-right: 35px; // Giãn thêm padding để tạo không gian
+}
+*/
