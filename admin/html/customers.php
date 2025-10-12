@@ -1,30 +1,7 @@
 <?php
-session_start();
-if (!isset($_SESSION['user_id'])) {
-    header("Location: login.php");
-    exit();
-}
-include __DIR__ . '/../../db.php'; // Đảm bảo đường dẫn đúng đến db.php
-
-// Giả lập dữ liệu thông báo (thay bằng query thực tế)
-$notifications = [
-    ['id' => 1, 'type' => 'new_order', 'message' => 'Đơn hàng mới từ Nguyễn Văn A (HD00125)', 'time' => '12:30 AM', 'order_id' => 'HD00125'],
-    ['id' => 2, 'type' => 'payment_received', 'message' => 'Khách hàng Chị Mai đã thanh toán (HD00124)', 'time' => '12:15 AM', 'order_id' => 'HD00124'],
-    ['id' => 3, 'type' => 'pending_order', 'message' => 'Đơn hàng HD00123 chờ xác nhận', 'time' => '11:50 PM', 'order_id' => 'HD00123']
-];
-$notification_count = count($notifications);
-
-// Hàm lấy danh sách khách hàng (sử dụng dữ liệu giả định)
-function getCustomers($conn) {
-    $customers = [
-        ['id' => 1, 'name' => 'Nguyễn Văn A', 'email' => 'a@gmail.com', 'phone' => '0909xxxxxx', 'address' => 'HCM', 'role' => 'USER', 'rank' => 'Silver', 'status' => 'Hoạt động', 'created_at' => '2025-01-01'],
-        ['id' => 2, 'name' => 'Trần Thị B', 'email' => 'b@gmail.com', 'phone' => '0912xxxxxx', 'address' => 'Hà Nội', 'role' => 'USER', 'rank' => 'Gold', 'status' => 'Hoạt động', 'created_at' => '2025-02-10'],
-        ['id' => 3, 'name' => 'Lê Văn C', 'email' => 'c@gmail.com', 'phone' => '0987xxxxxx', 'address' => 'Đà Nẵng', 'role' => 'USER', 'rank' => 'Bronze', 'status' => 'Ngưng', 'created_at' => '2025-03-20'],
-    ];
-    return $customers;
-}
-
-$customer_list = getCustomers($conn); // Sử dụng kết nối DB nếu có, hiện tại dùng dữ liệu giả định
+require_once __DIR__ . '/../controller/Customers_Controller.php';
+$ctx = CustomersController::handle();
+extract($ctx, EXTR_OVERWRITE); // tạo $customer_list, $page, $total_pages...
 ?>
 
 <!DOCTYPE html>
@@ -184,7 +161,7 @@ $customer_list = getCustomers($conn); // Sử dụng kết nối DB nếu có, h
                 <div class="flex items-center space-x-4">
                     <button id="notification-bell" class="text-gray-600 hover:text-gray-800 p-2 rounded-full relative">
                         <i class="fa-solid fa-bell text-xl"></i>
-                        <?php if ($notification_count > 0): ?>
+                        <?php if (!empty($notification_count)): ?>
                             <span class="absolute top-1 right-1 h-3 w-3 bg-red-500 rounded-full border-2 border-white"></span>
                         <?php endif; ?>
                     </button>

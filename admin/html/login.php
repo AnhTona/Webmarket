@@ -1,32 +1,9 @@
 <?php
-session_start();
+require_once __DIR__ . '/../controller/controller_admin_login.php';
+$ctx = AuthController::handle();
+$error = $ctx['error'] ?? null;
+?>
 
-// Nếu đã đăng nhập thì chuyển thẳng vào dashboard
-if (isset($_SESSION['user_id'])) {
-    header("Location: http://localhost/Webmarket/admin/html/dashboard.php");
-    exit();
-}
-
-// Xử lý khi form submit
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $username = $_POST['username'] ?? '';
-    $password = $_POST['password'] ?? '';
-
-    // Tài khoản mặc định
-    $default_user = "admin";
-    $default_pass = "654321";
-
-    if ($username === $default_user && $password === $default_pass) {
-        $_SESSION['user_id'] = 1;
-        $_SESSION['username'] = $username;
-
-        // Chuyển thẳng vào dashboard
-        header("Location: http://localhost/Webmarket/admin/html/dashboard.php");
-        exit();
-    } else {
-        $error = "Sai tên đăng nhập hoặc mật khẩu!";
-    }
-}
 ?>
 <!DOCTYPE html>
 <html lang="vi">

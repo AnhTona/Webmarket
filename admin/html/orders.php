@@ -1,49 +1,13 @@
 <?php
-session_start();
-if (!isset($_SESSION['user_id'])) {
-    header("Location: login.php");
-    exit();
-}
-include __DIR__ . '/../../db.php'; // Đảm bảo đường dẫn đúng đến db.php
+require_once __DIR__ . '/../controller/Orders_Controller.php';
+$ctx = OrdersController::handle();
+extract($ctx, EXTR_OVERWRITE);
 
-// Giả lập dữ liệu thông báo
-$notifications = [
-    ['id' => 1, 'type' => 'new_order', 'message' => 'Đơn hàng mới từ Nguyễn Văn A (HD00125)', 'time' => '12:30 AM', 'order_id' => 'HD00125'],
-    ['id' => 2, 'type' => 'payment_received', 'message' => 'Khách hàng Chị Mai đã thanh toán (HD00124)', 'time' => '12:15 AM', 'order_id' => 'HD00124'],
-    ['id' => 3, 'type' => 'pending_order', 'message' => 'Đơn hàng HD00123 chờ xác nhận', 'time' => '11:50 PM', 'order_id' => 'HD00123']
-];
-$notification_count = count($notifications);
-
-// Giả lập dữ liệu đơn hàng (thay bằng SELECT * FROM donhang)
-function getOrders($conn) {
-    $orders = [
-        ['MaDon' => 'DH001', 'KhachHang' => 'Nguyễn Văn A', 'Ban' => 'Bàn 5', 'NgayDat' => '2025-09-30 18:30', 'TongTien' => 450000, 'TrangThai' => 'Chờ xác nhận'],
-        ['MaDon' => 'DH002', 'KhachHang' => 'Lê Thị B', 'Ban' => 'Online', 'NgayDat' => '2025-09-30 19:00', 'TongTien' => 320000, 'TrangThai' => 'Đang chuẩn bị'],
-        ['MaDon' => 'DH003', 'KhachHang' => 'Trần C', 'Ban' => 'Bàn 2', 'NgayDat' => '2025-09-29 20:00', 'TongTien' => 220000, 'TrangThai' => 'Hoàn thành'],
-    ];
-    return $orders;
-}
-
-// Giả lập chi tiết đơn hàng
-function getOrderDetails($maDon) {
-    $details = [
-        'DH001' => [
-            ['TenSanPham' => 'Trà Đào', 'SoLuong' => 2, 'Gia' => 35000, 'Tong' => 70000],
-            ['TenSanPham' => 'Bánh Mì', 'SoLuong' => 1, 'Gia' => 20000, 'Tong' => 20000],
-        ],
-        'DH002' => [
-            ['TenSanPham' => 'Trà Sữa Đặc Biệt', 'SoLuong' => 1, 'Gia' => 45000, 'Tong' => 45000],
-            ['TenSanPham' => 'Bánh Mì', 'SoLuong' => 2, 'Gia' => 20000, 'Tong' => 40000],
-        ],
-        'DH003' => [
-            ['TenSanPham' => 'Trà Đào', 'SoLuong' => 1, 'Gia' => 35000, 'Tong' => 35000],
-        ],
-    ];
-    return $details[$maDon] ?? [];
-}
-
-$order_list = getOrders($conn); // Sử dụng kết nối DB nếu có
+// nếu header có chuông thông báo:
+$notifications      = $notifications ?? [];
+$notification_count = is_array($notifications) ? count($notifications) : 0;
 ?>
+
 
 <!DOCTYPE html>
 <html lang="vi">
@@ -259,8 +223,9 @@ $order_list = getOrders($conn); // Sử dụng kết nối DB nếu có
     </div>
 
     <script>
-        window.ordersData = <?php echo json_encode($order_list); ?> || [];
+        window.ordersData = <?php echo json_encode($order_list ?? [], JSON_UNESCAPED_UNICODE); ?>;
     </script>
     <script src="../js/orders.js"></script>
+
 </body>
 </html>

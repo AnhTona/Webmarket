@@ -1,31 +1,11 @@
 <?php
-session_start();
-if (!isset($_SESSION['user_id'])) {
-    header("Location: login.php");
-    exit();
-}
-include __DIR__ . '/../../db.php'; // Đảm bảo đường dẫn đúng đến db.php
+require_once __DIR__ . '/../controller/Tables_Controller.php';
+$ctx = TablesController::handle();
+extract($ctx, EXTR_OVERWRITE);
 
-// Giả lập dữ liệu thông báo
-$notifications = [
-    ['id' => 1, 'type' => 'new_order', 'message' => 'Đơn hàng mới từ Nguyễn Văn A (HD00125)', 'time' => '12:30 AM', 'order_id' => 'HD00125'],
-    ['id' => 2, 'type' => 'payment_received', 'message' => 'Khách hàng Chị Mai đã thanh toán (HD00124)', 'time' => '12:15 AM', 'order_id' => 'HD00124'],
-    ['id' => 3, 'type' => 'pending_order', 'message' => 'Đơn hàng HD00123 chờ xác nhận', 'time' => '11:50 PM', 'order_id' => 'HD00123']
-];
-$notification_count = count($notifications);
-
-// Hàm lấy danh sách bàn (dữ liệu giả định)
-function getTables($conn) {
-    $tables = [
-        ['id' => 1, 'seats' => 2, 'status' => 'Trống', 'usage_count' => 10],
-        ['id' => 2, 'seats' => 4, 'status' => 'Đang đặt', 'usage_count' => 15],
-        ['id' => 3, 'seats' => 6, 'status' => 'Đang sử dụng', 'usage_count' => 20],
-        ['id' => 4, 'seats' => 2, 'status' => 'Bảo trì', 'usage_count' => 5],
-    ];
-    return $tables;
-}
-
-$table_list = getTables($conn); // Sử dụng kết nối DB nếu có, hiện tại dùng dữ liệu giả định
+// nếu bạn vẫn đang dùng header hiển thị thông báo:
+$notifications      = $notifications ?? [];
+$notification_count = is_array($notifications) ? count($notifications) : 0;
 ?>
 
 <!DOCTYPE html>
@@ -254,7 +234,7 @@ $table_list = getTables($conn); // Sử dụng kết nối DB nếu có, hiện 
     </div>
 
     <script>
-        window.tablesData = <?php echo json_encode($table_list); ?> || [];
+        window.tablesData = <?php echo json_encode($table_list ?? [], JSON_UNESCAPED_UNICODE); ?>;
     </script>
     <script src="../js/tables.js"></script>
 </body>

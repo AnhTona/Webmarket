@@ -1,6 +1,6 @@
 <?php
 // Xóa dòng session_start() khỏi đây
-include __DIR__ . '/../../db.php'; // Đảm bảo đường dẫn đúng đến db.php
+include __DIR__ . '/../../model/database.php'; // Đảm bảo đường dẫn đúng đến db.php
 
 // Giả lập dữ liệu thông báo
 $notifications = [
