@@ -2,7 +2,7 @@
 document.addEventListener('DOMContentLoaded', () => {
     // ====== Cấu hình ======
     // Fix: hardcode đường dẫn đúng cho localhost
-    const PRODUCTS_API = '/Webmarket/controller/get_products.php';
+    const PRODUCTS_API = '/Webmarket/controller/Products_Filler_Controller.php';
     
     console.log('API URL:', PRODUCTS_API); // DEBUG để kiểm tra
 

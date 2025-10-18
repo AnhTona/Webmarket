@@ -1,5 +1,4 @@
 <?php
-// controller/get_products.php (OOP, tương thích JS cũ, join theo Loai)
 declare(strict_types=1);
 header('Content-Type: application/json; charset=UTF-8');
 
