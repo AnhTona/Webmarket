@@ -107,7 +107,7 @@ $notification_count = count($notifications);
                 </ul>
             </nav>
             <div class="p-4 border-t border-gray-200">
-                <a href="logout.php" class="flex items-center p-3 text-gray-700 hover:bg-red-100 hover:text-red-600 rounded-lg transition duration-200">
+                <a href="login.php" class="flex items-center p-3 text-gray-700 hover:bg-red-100 hover:text-red-600 rounded-lg transition duration-200">
                     <i class="fa-solid fa-right-from-bracket w-5 h-5 mr-3"></i>
                     <span>Đăng xuất</span>
                 </a>

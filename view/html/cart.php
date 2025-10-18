@@ -1,5 +1,5 @@
 <?php
-include __DIR__ . '/../../db.php';
+include __DIR__ . '/../../model/db.php';
 session_start();
 $cart_items = [];
 $cart_items = isset($_SESSION['cart']) ? $_SESSION['cart'] : [];
@@ -12,7 +12,6 @@ $cart_items = isset($_SESSION['cart']) ? $_SESSION['cart'] : [];
     <title>Giỏ Hàng - Trà & Bánh Trung Thu</title>
     <link rel="stylesheet" href="../css/home.css">
     <link rel="stylesheet" href="../css/cart.css">
-    <link rel="stylesheet" href="../css/responsive.css">
      <link rel="stylesheet" href="../css/search.css"> <!-- Thêm file search.css -->
               <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"> <!-- icon tìm kiếm-->
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600&display=swap" rel="stylesheet">

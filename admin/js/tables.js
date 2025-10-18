@@ -1,215 +1,203 @@
+// admin/js/tables.js
 document.addEventListener('DOMContentLoaded', () => {
-    const sidebar = document.getElementById('sidebar');
-    const menuToggle = document.getElementById('menu-toggle');
-    const contentArea = document.getElementById('content-area');
-    const mainLayout = document.getElementById('main-layout');
+    // ===== DOM refs (tùy trang bạn có hay không; code đều check null an toàn) =====
+    const sidebar   = document.getElementById('sidebar');
+    const menuToggle= document.getElementById('menu-toggle');
+    const mainLayout= document.getElementById('main-layout');
+
     const notificationBell = document.getElementById('notification-bell');
     const notificationDropdown = document.getElementById('notification-dropdown');
+
     const searchInput = document.getElementById('search-input');
-    const btnSearch = document.getElementById('btn-search');
-    const filterStatus = document.getElementById('filter-status');
-    const btnToggleAdvanced = document.getElementById('btn-toggle-advanced-filter');
-    const advancedFilters = document.getElementById('advanced-filters');
+    const btnSearch   = document.getElementById('btn-search');
+    const filterStatus= document.getElementById('filter-status');
     const filterSeats = document.getElementById('filter-seats');
-    const btnAddTable = document.getElementById('btn-add-table');
+    const btnToggleAdvanced = document.getElementById('btn-toggle-advanced-filter');
+    const advancedFilters   = document.getElementById('advanced-filters');
+
+    const tableEl    = document.getElementById('table-list-table');
+    const btnAddTable= document.getElementById('btn-add-table');
+
     const tableModal = document.getElementById('table-modal');
-    const closeButton = document.querySelector('.close-button');
-    const tableForm = document.getElementById('table-form');
-    const tableId = document.getElementById('table-id');
-    const seats = document.getElementById('seats');
-    const status = document.getElementById('status');
-    const btnSaveTable = document.getElementById('btn-save-table');
-    const tableListTable = document.getElementById('table-list-table');
-    const noResultsMessage = document.getElementById('no-results-message');
+    const modalTitle = document.getElementById('modal-title');
+    const closeButtons = document.querySelectorAll('.close-button');
+    const tableForm  = document.getElementById('table-form');
+    const tableId    = document.getElementById('table-id');
+    const seats      = document.getElementById('seats');
+    const status     = document.getElementById('status');
 
-    // Kiểm tra sự tồn tại của các phần tử
-    if (!sidebar || !menuToggle || !contentArea || !mainLayout || !notificationBell || !notificationDropdown ||
-        !searchInput || !btnSearch || !filterStatus || !btnToggleAdvanced || !advancedFilters ||
-        !filterSeats || !btnAddTable || !tableModal || !closeButton || !tableForm || !tableId ||
-        !seats || !status || !btnSaveTable || !tableListTable || !noResultsMessage) {
-        console.error('Một hoặc nhiều phần tử DOM không tồn tại!');
-        return;
+    // ===== Helpers =====
+    const API = {
+        async call(url, opts) {
+            const res = await fetch(url, opts);
+            let json;
+            try { json = await res.json(); } catch { json = { ok:false, message:'Lỗi JSON' }; }
+            if (!json.ok) throw new Error(json.message || 'Thao tác thất bại');
+            return json;
+        },
+        base: 'tables.php?ajax=1',
+    };
+
+    function reloadWith(qs) {
+        const s = qs.toString();
+        if (s) location.href = location.pathname + '?' + s;
+        else   location.href = location.pathname; // đảm bảo reload khi xóa hết param
     }
 
-    // Toggle Sidebar
-    function toggleSidebar() {
-        sidebar.classList.toggle('-translate-x-full');
+    // Lấy dữ liệu 1 dòng từ DOM (không phụ thuộc dữ liệu giả lập)
+    function readRow(tr) {
+        // Ưu tiên data-* nếu bạn có đặt trong tables.php
+        const data = {
+            id: tr.dataset.id || '',
+            seats: tr.dataset.seats || '',
+            status: tr.dataset.status || '',
+        };
+        // Fallback: đọc từ ô theo thứ tự cột (Mã bàn | Số ghế | Số lần | Trạng thái | Hành động)
+        if (!data.seats)  data.seats  = (tr.cells[1]?.textContent || '').trim();
+        if (!data.status) data.status = (tr.cells[3]?.textContent || tr.cells[2]?.textContent || '').trim();
+        return data;
     }
 
-    menuToggle.addEventListener('click', toggleSidebar);
-    mainLayout.addEventListener('click', function(event) {
-        if (window.innerWidth < 768 && !sidebar.contains(event.target) && !menuToggle.contains(event.target) && !sidebar.classList.contains('-translate-x-full')) {
-            toggleSidebar();
+    function openModal(row) {
+        tableForm?.reset();
+        if (row) {
+            modalTitle.textContent = 'CHỈNH SỬA BÀN #' + row.id;
+            tableId.value = row.id || '';
+            seats.value   = row.seats || '';
+            status.value  = row.status || 'Trống';
+        } else {
+            modalTitle.textContent = 'THÊM BÀN MỚI';
+            tableId.value = '';
+            status.value  = 'Trống';
         }
-    });
-    window.addEventListener('resize', function() {
-        if (window.innerWidth >= 768) {
-            sidebar.classList.remove('-translate-x-full');
-        }
-    });
-    if (window.innerWidth >= 768) {
-        sidebar.classList.remove('fixed', 'shadow-xl');
-        sidebar.classList.add('relative');
+        tableModal?.classList.remove('hidden');
     }
+    function closeModal() { tableModal?.classList.add('hidden'); }
 
-    // Xử lý thông báo
-    notificationBell.addEventListener('click', function(e) {
-        e.stopPropagation();
-        notificationDropdown.classList.toggle('active');
-    });
-    document.addEventListener('click', function(e) {
-        if (!notificationBell.contains(e.target) && !notificationDropdown.contains(e.target)) {
-            notificationDropdown.classList.remove('active');
-        }
-    });
-
-    // Toggle Advanced Filters
-    btnToggleAdvanced.addEventListener('click', () => {
-        advancedFilters.classList.toggle('hidden');
-    });
-
-    // Filter and Search
-    function filterTables() {
-        const searchTerm = searchInput.value.toLowerCase();
-        const statusFilter = filterStatus.value;
-        const seatsFilter = filterSeats.value;
-
-        const rows = tableListTable.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
-        let hasResults = false;
-
-        for (let row of rows) {
-            const id = row.getAttribute('data-id');
-            const table = window.tablesData.find(t => t.id == id);
-            if (!table) continue;
-
-            const matchesSearch = id.toString().includes(searchTerm);
-            const matchesStatus = statusFilter === 'All' || table.status === statusFilter;
-            const matchesSeats = !seatsFilter || table.seats == seatsFilter;
-
-            if (matchesSearch && matchesStatus && matchesSeats) {
-                row.style.display = '';
-                hasResults = true;
-            } else {
-                row.style.display = 'none';
+    // ===== UI chrome (optional) =====
+    if (menuToggle && sidebar) {
+        const toggleSidebar = () => sidebar.classList.toggle('-translate-x-full');
+        menuToggle.addEventListener('click', toggleSidebar);
+        mainLayout?.addEventListener('click', (e) => {
+            if (innerWidth < 768 && !sidebar.contains(e.target) && !menuToggle.contains(e.target) && !sidebar.classList.contains('-translate-x-full')) {
+                toggleSidebar();
             }
-        }
-
-        noResultsMessage.style.display = hasResults ? 'none' : 'block';
+        });
+        addEventListener('resize', () => { if (innerWidth >= 768) sidebar.classList.remove('-translate-x-full'); });
     }
+    if (notificationBell && notificationDropdown) {
+        notificationBell.addEventListener('click', (e) => { e.stopPropagation(); notificationDropdown.classList.toggle('active'); });
+        document.addEventListener('click', (e) => { if (!notificationBell.contains(e.target) && !notificationDropdown.contains(e.target)) notificationDropdown.classList.remove('active'); });
+    }
+    btnToggleAdvanced?.addEventListener('click', () => advancedFilters?.classList.toggle('hidden'));
 
-    searchInput.addEventListener('input', filterTables);
-    btnSearch.addEventListener('click', filterTables);
-    filterStatus.addEventListener('change', filterTables);
-    filterSeats.addEventListener('input', filterTables);
+    // ===== Search/Filter: đẩy param lên URL để backend lọc =====
+    function applyFilters(e) {
+        if (e) e.preventDefault();
+        const qs = new URLSearchParams(location.search);
+        const q  = (searchInput?.value || '').trim();
+        const st = filterStatus?.value || 'All';
+        const se = (filterSeats?.value || '').trim();
 
-    // Add Table
-    btnAddTable.addEventListener('click', () => {
-        tableId.value = '';
-        seats.value = '';
-        status.value = 'Trống';
-        tableModal.classList.remove('hidden');
-        document.getElementById('modal-title').textContent = 'THÊM BÀN MỚI';
-    });
+        if (q) qs.set('q', q); else qs.delete('q');
+        if (st && st !== 'All') qs.set('status', st); else qs.delete('status');
+        if (se) qs.set('seats', se); else qs.delete('seats');
 
-    // View/Edit Table
-    tableListTable.addEventListener('click', (e) => {
+        reloadWith(qs);
+    }
+    btnSearch?.addEventListener('click', applyFilters);
+    filterStatus?.addEventListener('change', applyFilters);
+    filterSeats?.addEventListener('input', (e) => { /* enter mới lọc hoặc blur: tùy bạn */ });
+
+    // ===== Modal open/close =====
+    btnAddTable?.addEventListener('click', () => openModal(null));
+    closeButtons.forEach(b => b.addEventListener('click', closeModal));
+    window.addEventListener('click', (e) => { if (e.target === tableModal) closeModal(); });
+
+    // ===== Delegation: các nút Hành động =====
+    tableEl?.addEventListener('click', async (e) => {
         const btn = e.target.closest('.btn-action');
         if (!btn) return;
+        const tr  = btn.closest('tr'); if (!tr) return;
+        const id  = tr.dataset.id;
 
-        const id = btn.closest('tr').getAttribute('data-id');
-        const table = window.tablesData.find(t => t.id == id);
+        try {
+            if (btn.classList.contains('view-detail') || btn.classList.contains('edit-table')) {
+                const row = readRow(tr);
+                openModal(row);
+                return;
+            }
 
-        if (btn.classList.contains('edit-table')) {
-            tableId.value = table.id;
-            seats.value = table.seats;
-            status.value = table.status;
-            tableModal.classList.remove('hidden');
-            document.getElementById('modal-title').textContent = 'CHỈNH SỬA BÀN';
-        } else if (btn.classList.contains('book-table')) {
-            if (confirm('Bạn có muốn đặt bàn này?')) {
-                const index = window.tablesData.findIndex(t => t.id == id);
-                window.tablesData[index].status = 'Đang đặt';
-                filterTables();
-                alert('Bàn đã được đặt (giả lập)');
+            if (btn.classList.contains('book-table')) {
+                if (!confirm('Bạn có muốn đặt bàn này?')) return;
+                await API.call(`${API.base}&action=book&id=${encodeURIComponent(id)}`);
+                location.reload();
+                return;
             }
-        } else if (btn.classList.contains('cancel-booking')) {
-            if (confirm('Bạn có muốn hủy đặt bàn này?')) {
-                const index = window.tablesData.findIndex(t => t.id == id);
-                window.tablesData[index].status = 'Trống';
-                filterTables();
-                alert('Đặt bàn đã bị hủy (giả lập)');
+
+            if (btn.classList.contains('cancel-booking')) {
+                if (!confirm('Bạn có muốn hủy đặt bàn này?')) return;
+                await API.call(`${API.base}&action=cancel&id=${encodeURIComponent(id)}`);
+                location.reload();
+                return;
             }
-        } else if (btn.classList.contains('checkout')) {
-            if (confirm('Thanh toán cho bàn này?')) {
-                const index = window.tablesData.findIndex(t => t.id == id);
-                window.tablesData[index].status = 'Trống';
-                window.tablesData[index].usage_count += 1;
-                filterTables();
-                alert('Thanh toán thành công (giả lập)');
+
+            if (btn.classList.contains('checkout')) {
+                if (!confirm('Thanh toán cho bàn này?')) return;
+                await API.call(`${API.base}&action=checkout&id=${encodeURIComponent(id)}`);
+                location.reload();
+                return;
             }
-        } else if (btn.classList.contains('change-status')) {
-            const newStatus = prompt('Nhập trạng thái mới (Trống, Đang đặt, Đang sử dụng, Bảo trì):');
-            if (newStatus && ['Trống', 'Đang đặt', 'Đang sử dụng', 'Bảo trì'].includes(newStatus)) {
-                const index = window.tablesData.findIndex(t => t.id == id);
-                window.tablesData[index].status = newStatus;
-                filterTables();
-                alert('Trạng thái đã được cập nhật (giả lập)');
+
+            // Hỗ trợ cả .toggle-status lẫn .change-status
+            if (btn.classList.contains('toggle-status') || btn.classList.contains('change-status')) {
+                const current = readRow(tr).status;
+                const next = prompt('Nhập trạng thái mới (Trống, Đang đặt, Đang sử dụng, Bảo trì):', current === 'Bảo trì' ? 'Trống' : current);
+                if (!next) return;
+                const fd = new FormData();
+                fd.append('action', 'change_status');
+                fd.append('status', next);
+                await API.call(`${API.base}&id=${encodeURIComponent(id)}`, { method: 'POST', body: fd });
+                location.reload();
+                return;
             }
-        } else if (btn.classList.contains('delete-table')) {
-            if (confirm('Bạn có chắc muốn xóa bàn này?')) {
-                const index = window.tablesData.findIndex(t => t.id == id);
-                window.tablesData.splice(index, 1);
-                btn.closest('tr').remove();
-                filterTables();
+
+            if (btn.classList.contains('delete-table')) {
+                if (!confirm('Xóa bàn này?')) return;
+                await API.call(`${API.base}&action=delete&id=${encodeURIComponent(id)}`);
+                // reload để đồng bộ cả thống kê “Số lần sử dụng”
+                location.reload();
+                return;
             }
+        } catch (err) {
+            alert(err.message || 'Có lỗi xảy ra');
         }
     });
 
-    // Close Modal
-    closeButton.addEventListener('click', () => tableModal.classList.add('hidden'));
-    window.addEventListener('click', (e) => {
-        if (e.target === tableModal) tableModal.classList.add('hidden');
-    });
-
-    // Save Table
-    tableForm.addEventListener('submit', (e) => {
+    // ===== Submit form (Thêm/Sửa) =====
+    tableForm?.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const id = tableId.value || Math.max(...window.tablesData.map(t => t.id), 0) + 1;
-        const data = {
-            id: id,
-            seats: parseInt(seats.value),
-            status: status.value,
-            usage_count: tableId.value ? window.tablesData.find(t => t.id == id).usage_count : 0
-        };
-        if (!tableId.value) {
-            window.tablesData.push(data);
-            const newRow = tableListTable.tBodies[0].insertRow();
-            newRow.setAttribute('data-id', id);
-            newRow.innerHTML = `
-                <td>${id}</td>
-                <td>${data.seats}</td>
-                <td><span class="status-badge status-${data.status.toLowerCase().replace(' ', '-')}">${data.status}</span></td>
-                <td>
-                    <button class="btn-action book-table" title="Đặt bàn"><i class="fas fa-calendar-check"></i></button>
-                    <button class="btn-action edit-table" title="Chỉnh sửa"><i class="fas fa-edit"></i></button>
-                    <button class="btn-action delete-table" title="Xóa"><i class="fas fa-trash"></i></button>
-                </td>
-            `;
-        } else {
-            const index = window.tablesData.findIndex(t => t.id == id);
-            window.tablesData[index] = data;
-            const row = tableListTable.querySelector(`tr[data-id="${id}"]`);
-            row.cells[1].textContent = data.seats;
-            row.cells[2].querySelector('.status-badge').className = `status-badge status-${data.status.toLowerCase().replace(' ', '-')}`;
-            row.cells[2].querySelector('.status-badge').textContent = data.status;
-            row.cells[3].innerHTML = `
-                <button class="btn-action ${data.status === 'Trống' ? 'book-table' : ''}" title="${data.status === 'Trống' ? 'Đặt bàn' : ''}"><i class="fas fa-calendar-check"></i></button>
-                <button class="btn-action edit-table" title="Chỉnh sửa"><i class="fas fa-edit"></i></button>
-                <button class="btn-action ${data.status !== 'Bảo trì' ? 'delete-table' : ''}" title="${data.status !== 'Bảo trì' ? 'Xóa' : ''}"><i class="fas fa-trash"></i></button>
-            `;
+        const fd = new FormData(tableForm);
+        fd.append('action', 'save');
+
+        // kiểm tra nhanh
+        const s = parseInt(fd.get('seats') || '0', 10);
+        if (Number.isNaN(s) || s <= 0) { alert('Số ghế phải > 0'); return; }
+
+        try {
+            await API.call(API.base, { method: 'POST', body: fd });
+            closeModal();
+            location.reload();
+        } catch (err) {
+            alert(err.message || 'Lưu thất bại');
         }
-        tableModal.classList.add('hidden');
-        filterTables();
-        alert('Dữ liệu đã được lưu (giả lập)');
     });
+
+    // ===== Hydrate filter từ URL (nếu bạn cần show lại UI) =====
+    (function hydrateFromUrl(){
+        const qs = new URLSearchParams(location.search);
+        if (qs.has('q') && searchInput)   searchInput.value = qs.get('q');
+        if (qs.has('status') && filterStatus) filterStatus.value = qs.get('status');
+        if (qs.has('seats') && filterSeats)   filterSeats.value = qs.get('seats');
+    })();
 });

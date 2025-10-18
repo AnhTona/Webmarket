@@ -66,3 +66,6 @@
 .modal-actions .btn-primary:hover { background-color: #6d1f18; }
 .modal-actions .btn-secondary { background-color: #ccc; color: #333; }
 .modal-actions .btn-secondary:hover { background-color: #bbb; }
+.modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 50; }
+.modal.open { display: flex; align-items: center; justify-content: center; }
+.modal .modal-content { background: #fff; width: min(720px, 92vw); border-radius: 12px; padding: 16px; }

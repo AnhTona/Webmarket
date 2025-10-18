@@ -72,7 +72,7 @@ $notification_count = is_array($notifications) ? count($notifications) : 0;
                 </ul>
             </nav>
             <div class="p-4 border-t border-gray-200">
-                <a href="logout.php" class="flex items-center p-3 text-gray-700 hover:bg-red-100 hover:text-red-600 rounded-lg transition duration-200">
+                <a href="login.php" class="flex items-center p-3 text-gray-700 hover:bg-red-100 hover:text-red-600 rounded-lg transition duration-200">
                     <i class="fa-solid fa-right-from-bracket w-5 h-5 mr-3"></i>
                     <span>Đăng xuất</span>
                 </a>
@@ -175,14 +175,14 @@ $notification_count = is_array($notifications) ? count($notifications) : 0;
                                     <td><span class="status-badge status-<?php echo strtolower(str_replace(' ', '-', $order['TrangThai'])); ?>"><?php echo htmlspecialchars($order['TrangThai']); ?></span></td>
                                     <td>
                                         <?php if ($order['TrangThai'] === 'Chờ xác nhận'): ?>
-                                            <button class="btn-action confirm-order" title="Xác nhận"><i class="fas fa-check"></i></button>
-                                            <button class="btn-action cancel-order" title="Hủy"><i class="fas fa-times"></i></button>
-                                            <button class="btn-action view-order" title="Xem"><i class="fas fa-eye"></i></button>
+                                            <button class="btn-action confirm-order" title="Xác nhận">Xác nhận<i class="fas fa-check"></i></button>
+                                            <button class="btn-action cancel-order" title="Hủy">Hủy<i class="fas fa-times"></i></button>
+                                            <button class="btn-action view-order" title="Xem">Xem<i class="fas fa-eye"></i></button>
                                         <?php elseif ($order['TrangThai'] === 'Đang chuẩn bị'): ?>
-                                            <button class="btn-action complete-order" title="Hoàn thành"><i class="fas fa-check-double"></i></button>
+                                            <button class="btn-action complete-order" title="Hoàn thành">Hoàn thành<i class="fas fa-check-double"></i></button>
                                             <button class="btn-action cancel-order" title="Hủy"><i class="fas fa-times"></i></button>
                                         <?php elseif ($order['TrangThai'] === 'Hoàn thành'): ?>
-                                            <button class="btn-action view-order" title="Xem chi tiết"><i class="fas fa-eye"></i></button>
+                                            <button class="btn-action view-order" title="Xem chi tiết">Xem chi tiết<i class="fas fa-eye"></i></button>
                                         <?php endif; ?>
                                     </td>
                                 </tr>

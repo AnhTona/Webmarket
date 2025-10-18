@@ -1,7 +1,7 @@
 <?php
 // view/html/search_suggestions.php
 header("Content-Type: application/json; charset=UTF-8");
-include __DIR__ . '/../../db.php'; // Đảm bảo đường dẫn này đúng
+include __DIR__ . '/../model/database.php'; // Đảm bảo đường dẫn này đúng
 
 // Đảm bảo charset
 $conn->set_charset("utf8mb4");

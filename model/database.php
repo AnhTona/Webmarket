@@ -1,5 +1,5 @@
 <?php
-class database {
+class Database {
     private string $host = "127.0.0.1";
     private int    $port = 3306;
     private string $user = "root";

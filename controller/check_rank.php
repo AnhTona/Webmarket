@@ -2,7 +2,7 @@
 // check_rank.php (API kiểm tra hạng khách hàng)
 header('Content-Type: application/json; charset=UTF-8');
 // Đảm bảo đường dẫn đến file kết nối CSDL (db.php) là đúng
-include __DIR__ . '/../../db.php'; 
+include __DIR__ . '/../model/database.php';
 
 $response = [
     'success' => true,
@@ -90,7 +90,7 @@ try {
     // 4. Cập nhật hạng vào bảng NguoiDung
     // Cập nhật lại 2 cột mới thêm (HangKhachHang, TongChiTieu)
     $sql_update_user = "UPDATE NguoiDung 
-                        SET HangKhachHang = ?, TongChiTieu = ?
+                        SET Hang = ?, TongChiTieu = ?
                         WHERE MaNguoiDung = ?";
     $stmt_update = $conn->prepare($sql_update_user);
     $stmt_update->bind_param("sdi", $rank_name, $total_spent, $ma_nguoi_dung);

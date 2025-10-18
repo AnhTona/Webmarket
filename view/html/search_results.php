@@ -1,22 +1,14 @@
 <?php
-include __DIR__ . '/../../db.php';
-$keyword = isset($_GET['keyword']) ? $_GET['keyword'] : '';
+include __DIR__ . '/../model/db.php';
+$keyword = isset($_GET['keyword']) ? trim($_GET['keyword']) : '';
 
 if (!empty($keyword) && isset($conn)) {
-    // 1. Lấy địa chỉ IP
+    // Lưu lịch sử tìm kiếm
     $ip_address = $_SERVER['REMOTE_ADDR'];
-
-    // 2. Chuẩn bị câu lệnh INSERT. Đã thay tên bảng thành `lichsutimkiem`
     $sql_insert = "INSERT INTO lichsutimkiem (keyword, search_time, user_ip) VALUES (?, NOW(), ?)";
-    
     if ($stmt_insert = $conn->prepare($sql_insert)) {
-        // 3. Bind tham số
         $stmt_insert->bind_param("ss", $keyword, $ip_address);
-        
-        // 4. Thực thi câu lệnh
-        if ($stmt_insert->execute()) {
-            // Lịch sử tìm kiếm đã được lưu
-        } else {
+        if (!$stmt_insert->execute()) {
             error_log("Lỗi khi lưu từ khóa tìm kiếm vào lichsutimkiem: " . $stmt_insert->error);
         }
         $stmt_insert->close();
@@ -25,7 +17,65 @@ if (!empty($keyword) && isset($conn)) {
     }
 }
 
-// --- KẾT THÚC PHẦN CODE BỔ SUNG ---
+// Chuẩn bị dữ liệu sản phẩm từ database
+$products = [];
+if (isset($conn)) {
+    $conn->set_charset("utf8mb4"); // Đảm bảo sử dụng UTF-8
+    $sql = "SELECT 
+                s.MaSanPham, 
+                s.TenSanPham, 
+                s.Gia, 
+                s.GiaCu, 
+                s.HinhAnh, 
+                s.SoLuongTon, 
+                s.TrangThai, 
+                s.NgayTao, 
+                s.IsPromo, 
+                s.Loai AS subCategory, 
+                s.Popularity, 
+                s.NewProduct,
+                GROUP_CONCAT(DISTINCT dm.TenDanhMuc SEPARATOR ', ') AS categories
+            FROM sanpham s
+            LEFT JOIN sanpham_danhmuc sdm ON s.MaSanPham = sdm.MaSanPham
+            LEFT JOIN danhmucsanpham dm ON sdm.MaDanhMuc = dm.MaDanhMuc
+            WHERE s.TrangThai = 1 AND s.TenSanPham LIKE ?
+            GROUP BY s.MaSanPham";
+    
+    if ($stmt = $conn->prepare($sql)) {
+        $searchKeyword = "%" . $keyword . "%";
+        $stmt->bind_param("s", $searchKeyword);
+        $stmt->execute();
+        $result = $stmt->get_result();
+
+        if ($result) {
+            while ($row = $result->fetch_assoc()) {
+                $oldPrice = $row["IsPromo"] && $row["GiaCu"] ? (float)$row["GiaCu"] : null;
+                $products[] = [
+                    "id" => (int)$row["MaSanPham"],
+                    "name" => $row["TenSanPham"],
+                    "price" => (float)$row["Gia"],
+                    "oldPrice" => $oldPrice,
+                    "image" => $row["HinhAnh"] ?: "image/sp1.jpg",
+                    "stock" => (int)$row["SoLuongTon"],
+                    "status" => (int)$row["TrangThai"],
+                    "createdDate" => $row["NgayTao"],
+                    "isPromo" => (bool)$row["IsPromo"],
+                    "subCategory" => $row["subCategory"] ?: "",
+                    "popularity" => (int)$row["Popularity"],
+                    "newProduct" => (bool)$row["NewProduct"],
+                    "category" => $row["categories"] ? explode(', ', $row["categories"])[0] : ($row["subCategory"] ?: "Trà")
+                ];
+            }
+            $stmt->close();
+        } else {
+            error_log("Lỗi truy vấn: " . $conn->error);
+        }
+    } else {
+        error_log("Chuẩn bị truy vấn thất bại: " . $conn->error);
+    }
+}
+
+$conn->close();
 ?>
 
 <!DOCTYPE html>
@@ -38,7 +88,7 @@ if (!empty($keyword) && isset($conn)) {
     <link rel="stylesheet" href="../css/responsive.css">
     <link rel="stylesheet" href="../css/home.css">
     <link rel="stylesheet" href="../css/search.css">
-             <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"> <!-- icon tìm kiếm-->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7ISGqrIDrxlwX+uYwg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
 </head>
@@ -58,7 +108,7 @@ if (!empty($keyword) && isset($conn)) {
         <div class="search-container">
             <form class="search-form" action="search_results.php" method="GET">
                 <input type="text" id="search-input" name="keyword" placeholder="Tìm kiếm sản phẩm..." value="<?php echo htmlspecialchars($keyword); ?>">
-                  <button type="submit" class="search-submit-btn"> <i class="fa-solid fa-magnifying-glass"></i> </button>
+                <button type="submit" class="search-submit-btn"><i class="fa-solid fa-magnifying-glass"></i></button>
             </form>
             <div class="autocomplete-results" id="autocomplete-results"></div>
         </div>
@@ -85,18 +135,13 @@ if (!empty($keyword) && isset($conn)) {
     <?php include 'footer.php'; ?>
 
     <script src="../js/search.js"></script>
-    <!-- Overlay (dùng để dim nền & đóng minicart khi click) -->
     <div id="overlay" aria-hidden="true"></div>
-
-    <!-- Minicart -->
     <div id="mini-cart" aria-hidden="true" role="dialog" aria-label="Giỏ hàng mini">
         <div class="minicart-header">
             <span class="title">Giỏ hàng</span>
             <button type="button" class="close-btn" aria-label="Đóng mini cart">&times;</button>
         </div>
-        <div id="minicart-items-list" class="minicart-items" aria-live="polite">
-            <!-- items sẽ được JS chèn vào đây -->
-        </div>
+        <div id="minicart-items-list" class="minicart-items" aria-live="polite"></div>
         <div class="minicart-footer">
             <div class="minicart-total-row">
                 <span id="minicart-item-count">0 sản phẩm</span>
@@ -107,59 +152,9 @@ if (!empty($keyword) && isset($conn)) {
     </div>
 
     <script>
-        // Lấy dữ liệu sản phẩm trực tiếp từ PHP với mysqli
-        <?php
-        $products = [];
+        const products = <?php echo json_encode($products, JSON_UNESCAPED_UNICODE); ?>;
+        console.log('Dữ liệu sản phẩm từ tìm kiếm:', products);
 
-        // Chuẩn bị truy vấn
-        $sql = "SELECT s.*, GROUP_CONCAT(DISTINCT dm.TenDanhMuc SEPARATOR ', ') AS categories
-                FROM sanpham s
-                LEFT JOIN sanpham_khuyenmai sd ON s.MaSanPham = sd.MaSanPham
-                LEFT JOIN danhmuc dm ON sd.MaDanhMuc = dm.MaDanhMuc
-                WHERE s.TenSanPham LIKE ?
-                GROUP BY s.MaSanPham";
-        
-        if ($stmt = $conn->prepare($sql)) {
-            $stmt->bind_param("s", $searchKeyword);
-            $searchKeyword = "%$keyword%";
-            $stmt->execute();
-            $result = $stmt->get_result();
-
-            if ($result) {
-                while ($row = $result->fetch_assoc()) {
-                    $isPromo = (int)$row["isPromo"];
-                    $oldPrice = $isPromo && $row["GiaCu"] ? (int)$row["GiaCu"] : null;
-                    if (!$oldPrice && $isPromo) {
-                        $oldPrice = (int)($row["Gia"] * (1 + (rand(10, 30) / 100)));
-                    }
-                    $products[] = [
-                        "id" => (int)$row["MaSanPham"],
-                        "name" => $row["TenSanPham"],
-                        "price" => (int)$row["Gia"],
-                        "oldPrice" => $oldPrice,
-                        "image" => $row["HinhAnh"] ?: "image/sp1.jpg",
-                        "category" => $row["categories"] ?: $row["danh_muc"],
-                        "subCategory" => $row["loai"] ?: "",
-                        "popularity" => rand(50, 500),
-                        "newProduct" => (bool)rand(0, 1),
-                        "isPromo" => $isPromo
-                    ];
-                }
-                $stmt->close();
-            } else {
-                echo "console.error('Lỗi truy vấn: " . $conn->error . "');\n";
-                $products = [];
-            }
-        } else {
-            echo "console.error('Chuẩn bị truy vấn thất bại: " . $conn->error . "');\n";
-            $products = [];
-        }
-
-        echo "const products = " . json_encode($products, JSON_UNESCAPED_UNICODE) . ";\n";
-        echo "console.log('Dữ liệu sản phẩm:', products);\n";
-        ?>
-
-        // Hàm hiển thị sản phẩm
         function displayProducts(products) {
             const productGrid = document.getElementById('product-grid');
             const noProductsMessage = document.getElementById('no-products-message');
@@ -172,28 +167,33 @@ if (!empty($keyword) && isset($conn)) {
             noProductsMessage.style.display = 'none';
 
             products.forEach(product => {
-                const productCard = document.createElement('div');
-                productCard.classList.add('product-card');
-                productCard.innerHTML = `
-                    <img src="${product.image || 'image/sp1.jpg'}" alt="${product.name}" onerror="this.src='image/sp1.jpg';">
-                    <h3>${product.name}</h3>
-                    <div class="product-info">
-                        ${product.oldPrice ? `<p class="old-price">${product.oldPrice.toLocaleString('vi-VN')} VNĐ</p>` : ''}
-                        <p class="price ${product.oldPrice ? 'promo-price' : ''}">${product.price.toLocaleString('vi-VN')} VNĐ</p>
-                        <a href="#" class="btn-add" 
-                           data-id="${product.id}" 
-                           data-name="${product.name}" 
-                           data-price="${product.price}" 
-                           data-image="${product.image || 'image/sp1.jpg'}">
-                           Thêm vào giỏ hàng <i class="fa-solid fa-basket-shopping"></i>
-                        </a>
+                const discount = product.oldPrice ? calculateDiscount(product.oldPrice, product.price) : null;
+                productGrid.innerHTML += `
+                    <div class="product-card" data-category="${product.category}" data-sub-category="${product.subCategory}">
+                        ${discount ? `<div class="discount-badge">${discount}</div>` : ''}
+                        <img src="${product.image}" alt="${product.name}" onerror="this.src='image/sp1.jpg';">
+                        <h3>${product.name}</h3>
+                        <div class="product-info">
+                            ${product.oldPrice ? `<p class="old-price">${product.oldPrice.toLocaleString('vi-VN')} VNĐ</p>` : ''}
+                            <p class="price ${product.oldPrice ? 'promo-price' : ''}">${product.price.toLocaleString('vi-VN')} VNĐ</p>
+                            <a href="#" class="btn-add" 
+                               data-id="${product.id}" 
+                               data-name="${product.name}" 
+                               data-price="${product.price}" 
+                               data-image="${product.image}">
+                               Thêm vào giỏ hàng <i class="fa-solid fa-basket-shopping"></i>
+                            </a>
+                        </div>
                     </div>
                 `;
-                productGrid.appendChild(productCard);
             });
         }
 
-        // Khởi tạo và quản lý giỏ hàng
+        function calculateDiscount(oldPrice, newPrice) {
+            if (!oldPrice || oldPrice <= newPrice) return null;
+            return `-${((1 - newPrice / oldPrice) * 100).toFixed(0)}%`;
+        }
+
         let cart = JSON.parse(localStorage.getItem('cart')) || [];
 
         function readCart() { return JSON.parse(localStorage.getItem('cart')) || []; }
@@ -208,7 +208,6 @@ if (!empty($keyword) && isset($conn)) {
             }
         }
 
-        // Thêm sản phẩm vào giỏ hàng (loại bỏ alert)
         function addToCart(productId, name, price, image) {
             const existingItem = cart.find(item => item.id === productId);
             if (existingItem) {
@@ -221,20 +220,6 @@ if (!empty($keyword) && isset($conn)) {
             openMiniCart();
         }
 
-        // Xử lý sự kiện thêm vào giỏ hàng
-        document.addEventListener('click', (e) => {
-            const addBtn = e.target.closest('.btn-add');
-            if (addBtn) {
-                e.preventDefault();
-                const productId = addBtn.getAttribute('data-id');
-                const name = addBtn.getAttribute('data-name');
-                const price = parseFloat(addBtn.getAttribute('data-price'));
-                const image = addBtn.getAttribute('data-image');
-                addToCart(productId, name, price, image);
-            }
-        });
-
-        // Minicart logic
         const overlayEl = document.getElementById('overlay');
         const miniCartEl = document.getElementById('mini-cart');
         const miniCartItemsEl = document.getElementById('minicart-items-list');
@@ -294,7 +279,18 @@ if (!empty($keyword) && isset($conn)) {
             }
         });
 
-        // Hiển thị sản phẩm khi trang tải
+        document.addEventListener('click', (e) => {
+            const addBtn = e.target.closest('.btn-add');
+            if (addBtn) {
+                e.preventDefault();
+                const productId = addBtn.getAttribute('data-id');
+                const name = addBtn.getAttribute('data-name');
+                const price = parseFloat(addBtn.getAttribute('data-price'));
+                const image = addBtn.getAttribute('data-image');
+                addToCart(productId, name, price, image);
+            }
+        });
+
         document.addEventListener('DOMContentLoaded', () => {
             displayProducts(products);
             updateCartBadge();
@@ -303,7 +299,3 @@ if (!empty($keyword) && isset($conn)) {
     </script>
 </body>
 </html>
-
-<?php
-$conn->close();
-?>

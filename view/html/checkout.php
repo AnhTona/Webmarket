@@ -1,6 +1,6 @@
 <?php
 // checkout.php
-include __DIR__ . '/../../db.php';
+include __DIR__ . '/../../model/db.php';
 session_start();
 // Lưu ý: Dữ liệu giỏ hàng sẽ được load và tính toán bằng JavaScript
 ?>
@@ -25,7 +25,7 @@ session_start();
         
         <h1>HOÀN TẤT ĐƠN HÀNG</h1>
 
-        <form id="checkout-form" action="process_order.php" method="POST" enctype="multipart/form-data">
+        <form id="checkout-form" action="../../controller/process_order.php" method="POST" enctype="multipart/form-data">
             <div class="checkout-grid">
                 
                 <section class="checkout-details-column">

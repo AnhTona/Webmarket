@@ -4,8 +4,8 @@
 
 class Product_Controller
 {
-    public const UPLOAD_DIR = '/../uploads/products'; // thư mục vật lý: admin/uploads/products
-    public const UPLOAD_URL = 'uploads/products';     // URL tương đối để <img src="...">
+    public const UPLOAD_DIR = '/../../Webmarket/image'; // thư mục vật lý: admin/uploads/products
+    public const UPLOAD_URL = '/../../Webmarket/image';     // URL tương đối để <img src="...">
 
     public static function handle(): array
     {
@@ -20,6 +20,9 @@ class Product_Controller
         if ($method === 'GET' && $action === 'delete') {
             return self::delete($conn); // sẽ JSON hoặc redirect rồi exit
         }
+        if ($method === 'GET' && $action === 'get') {
+            return self::getOne($conn); // trả JSON
+        }
         return self::index($conn);      // trả dữ liệu cho view
     }
 
@@ -27,8 +30,8 @@ class Product_Controller
     private static function connect(): mysqli
     {
         $candidates = [
-            dirname(__DIR__)    . '/model/db.php',
-            dirname(__DIR__,2)  . '/model/db.php',
+            dirname(__DIR__)    . '/../../model/db.php',
+            dirname(__DIR__,2)  . '/../../model/db.php',
         ];
         foreach ($candidates as $f) {
             if (is_file($f)) { include_once $f; }
@@ -57,29 +60,35 @@ class Product_Controller
         $search   = trim($_GET['search']   ?? '');
 
         // Bộ lọc từ UI (không đổi layout)
-        $category = $_GET['category'] ?? 'All'; // 'All' | 'Trà' | 'Bánh' | ...
-        $promo    = $_GET['promo']    ?? 'All'; // 'All' | '1' (Có) | '0' (Không)
+        $cat = $_GET['category'] ?? 'All';
+        $promo    = trim($_GET['promo']    ?? '');
 
         $params = [];
         $wheres = [];
 
         if ($search !== '') {
-            $wheres[] = 'sp.TenSanPham LIKE ?';
+            $wheres[] = 's.TenSanPham LIKE ?';
             $params[] = '%' . $search . '%';
         }
-        if ($category !== 'All') {
-            $wheres[] = 'dm.TenDanhMuc = ?';
-            $params[] = $category;
+        // THAY toà bộ if(...) ở trên bằng khối này
+        if ($cat !== '' && $cat !== 'All') {
+            // nếu value là số id danh mục
+            if (ctype_digit((string)$cat)) {
+                $wheres[] = 'dm.MaDanhMuc = ?';
+                $params[] = (int)$cat;
+            } else {
+                // nếu bạn dùng tên danh mục làm value
+                $wheres[] = 'dm.TenDanhMuc = ?';
+                $params[] = $cat;
+            }
         }
-
         // Join khuyến mãi còn hiệu lực để suy ra cờ isPromo
         $promoJoin = "
-            LEFT JOIN sanpham_khuyenmai spkm ON sp.MaSanPham = spkm.MaSanPham
-            LEFT JOIN khuyenmai km ON spkm.MaKhuyenMai = km.MaKhuyenMai
-               AND km.TrangThai = 1
-               AND (km.NgayBatDau IS NULL OR km.NgayBatDau <= CURRENT_DATE())
-               AND (km.NgayKetThuc IS NULL OR km.NgayKetThuc >= CURRENT_DATE())
+            LEFT JOIN sanpham_khuyenmai kmsp ON kmsp.MaSanPham = s.MaSanPham
+            LEFT JOIN khuyenmai km ON km.MaKhuyenMai = kmsp.MaKhuyenMai
+                AND NOW() BETWEEN km.NgayBatDau AND km.NgayKetThuc
         ";
+
 
         if ($promo === '1') {        // Chỉ sản phẩm đang có khuyến mãi
             $wheres[] = 'km.MaKhuyenMai IS NOT NULL';
@@ -90,15 +99,15 @@ class Product_Controller
         $whereSql = $wheres ? ('WHERE ' . implode(' AND ', $wheres)) : '';
 
         // Tổng hàng (DISTINCT tránh đếm trùng do JOIN)
-        $sqlCount = "
-            SELECT COUNT(DISTINCT sp.MaSanPham) AS total
-            FROM sanpham sp
-            LEFT JOIN sanpham_danhmuc spdm ON sp.MaSanPham = spdm.MaSanPham
-            LEFT JOIN danhmucsanpham dm     ON spdm.MaDanhMuc = dm.MaDanhMuc
+        $sql = "
+            SELECT COUNT(DISTINCT s.MaSanPham) AS total
+            FROM sanpham s
+            LEFT JOIN sanpham_danhmuc sdm ON s.MaSanPham = sdm.MaSanPham
+            LEFT JOIN danhmucsanpham   dm  ON sdm.MaDanhMuc = dm.MaDanhMuc
             $promoJoin
             $whereSql
         ";
-        $total_products = (int) self::fetchValue($conn, $sqlCount, $params);
+        $total_products = (int) self::fetchValue($conn, $sql, $params);
 
         $total_pages = max(1, (int)ceil($total_products / $per_page));
         $page        = min($page, $total_pages);
@@ -107,23 +116,40 @@ class Product_Controller
         // Danh sách trang hiện tại
         $sqlList = "
             SELECT
-                sp.MaSanPham,
-                sp.TenSanPham,
-                sp.Gia,
-                sp.HinhAnh,
-                sp.MoTa,
-                sp.SoLuongTon,
-                COALESCE(dm.TenDanhMuc, '-') AS TenDanhMuc,
-                (km.MaKhuyenMai IS NOT NULL)  AS isPromo
-            FROM sanpham sp
-            LEFT JOIN sanpham_danhmuc spdm ON sp.MaSanPham = spdm.MaSanPham
-            LEFT JOIN danhmucsanpham dm     ON spdm.MaDanhMuc = dm.MaDanhMuc
+                s.MaSanPham,
+                s.TenSanPham,
+                s.Gia,
+                s.GiaCu,
+                s.HinhAnh,
+                s.SoLuongTon,
+                s.TrangThai,
+                s.NgayTao,
+                GREATEST(
+                    s.IsPromo,
+                    CASE WHEN EXISTS (
+                        SELECT 1
+                        FROM sanpham_khuyenmai skm
+                        JOIN khuyenmai k ON k.MaKhuyenMai = skm.MaKhuyenMai
+                        WHERE skm.MaSanPham = s.MaSanPham
+                          AND k.TrangThai = 1
+                          AND NOW() BETWEEN k.NgayBatDau AND k.NgayKetThuc
+                    ) THEN 1 ELSE 0 END
+                ) AS IsPromo,
+                s.Loai AS subCategory,
+                s.Popularity,
+                s.NewProduct,
+                COALESCE(GROUP_CONCAT(DISTINCT dm.TenDanhMuc SEPARATOR ', '), '-') AS TenDanhMuc
+            FROM sanpham s
+            LEFT JOIN sanpham_danhmuc sdm ON s.MaSanPham = sdm.MaSanPham
+            LEFT JOIN danhmucsanpham   dm  ON sdm.MaDanhMuc = dm.MaDanhMuc
             $promoJoin
             $whereSql
-            GROUP BY sp.MaSanPham
-            ORDER BY sp.NgayTao DESC, sp.MaSanPham DESC
+            GROUP BY s.MaSanPham
+            ORDER BY s.NgayTao DESC, s.MaSanPham DESC
             LIMIT ?, ?
         ";
+
+
         $listParams = array_merge($params, [$offset, $per_page]);
         $product_list_paginated = self::fetchAll($conn, $sqlList, $listParams) ?? [];
 
@@ -142,65 +168,120 @@ class Product_Controller
         return compact(
             'product_list_paginated','total_products','per_page','page','total_pages',
             'notifications','notification_count',
-            'category','promo','category_options'
+            'cat','promo','category_options'
         );
     }
 
     /** Thêm/Sửa sản phẩm */
     private static function save(mysqli $conn): array
     {
-        $id    = isset($_POST['id']) && $_POST['id'] !== '' ? (int)$_POST['id'] : null;
-        $name  = trim($_POST['name']  ?? '');
-        $price = (float)($_POST['price'] ?? 0);
-        $desc  = trim($_POST['description'] ?? '');
-        $qty   = (int)($_POST['quantity'] ?? 0);
-        $cat   = trim($_POST['category']   ?? '');
+        $id       = isset($_POST['id']) && $_POST['id'] !== '' ? (int)$_POST['id'] : null;
+        $name     = trim($_POST['name'] ?? '');
+        $price    = (float)($_POST['price'] ?? 0);
+        $oldPrice = ($_POST['old-price'] ?? '') !== '' ? (float)$_POST['old-price'] : null;
+        $desc     = trim($_POST['description'] ?? '');
+        $qty      = (int)($_POST['quantity'] ?? 0);
+        $cat      = trim($_POST['category'] ?? '');
+        $promo    = isset($_POST['promo']) ? (int)$_POST['promo'] : 0; // 0|1
 
         if ($name === '' || $price < 0) {
             return self::respond(false, 'Tên hoặc giá không hợp lệ!');
         }
 
-        // Upload ảnh (nếu có)
-        $imgPath = null;
-        if (!empty($_FILES['image']['name'])) {
-            $up = self::handleUpload($_FILES['image']);
-            if (!$up['ok']) return self::respond(false, $up['message']);
-            $imgPath = $up['path']; // uploads/products/xxx.jpg
+        // ===== ẢNH: giữ ảnh cũ nếu không upload mới =====
+        $imgCurrent = trim($_POST['image_old'] ?? '');
+        $imgPath    = $imgCurrent; // mặc định giữ ảnh cũ
+
+        // Có chọn file mới?
+        if (isset($_FILES['image']) && is_array($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
+            // Thư mục vật lý lưu ảnh
+            $uploadDir = str_replace('\\', '/', realpath(__DIR__ . '/../../')) . '/image/';
+            if (!is_dir($uploadDir)) @mkdir($uploadDir, 0777, true);
+
+            // Đường dẫn web gốc của app (ví dụ /Webmarket)
+            $appBase = rtrim(
+                preg_replace('#/admin(?:/.*)?$#', '', str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME']))),
+                '/'
+            );
+            $uploadUrl = $appBase . '/image/';
+
+            // --- DÙNG TÊN GỐC, GHI ĐÈ NẾU TRÙNG ---
+            $allow = ['jpg','jpeg','png','gif','webp'];
+            $ext   = strtolower(pathinfo($_FILES['image']['name'], PATHINFO_EXTENSION));
+            if (!in_array($ext, $allow, true)) {
+                return self::respond(false, 'Chỉ cho phép JPG/JPEG/PNG/GIF/WebP');
+            }
+
+            $base = pathinfo($_FILES['image']['name'], PATHINFO_FILENAME);
+            // slug: giữ a-z0-9 . _ -
+            $slug = preg_replace('~[^a-z0-9._-]+~i', '-', $base);
+            if ($slug === '') $slug = 'image';
+
+            $file   = $slug . '.' . $ext;
+            $target = $uploadDir . $file;
+
+            // Nếu ảnh cũ khác tên và nằm trong /image/, có thể xoá để tránh rác
+            if ($imgCurrent && strpos($imgCurrent, '/image/') !== false && basename($imgCurrent) !== $file) {
+                @unlink($uploadDir . basename($imgCurrent));
+            }
+
+            // Ghi đè file cùng tên để dùng đúng tên bạn chọn
+            if (is_file($target)) @unlink($target);
+
+            if (!move_uploaded_file($_FILES['image']['tmp_name'], $target)) {
+                return self::respond(false, 'Không thể lưu ảnh mới');
+            }
+
+            // Lưu URL web vào DB (ví dụ: /Webmarket/image/sp55.jpg)
+            $imgPath = $uploadUrl . $file;
         }
 
+        // ===== Lưu sản phẩm =====
         if ($id) {
-            if ($imgPath !== null) {
-                $ok = self::exec($conn,
-                    "UPDATE sanpham SET TenSanPham=?, Gia=?, MoTa=?, SoLuongTon=?, HinhAnh=? WHERE MaSanPham=?",
-                    [$name,$price,$desc,$qty,$imgPath,$id]
-                );
-            } else {
-                $ok = self::exec($conn,
-                    "UPDATE sanpham SET TenSanPham=?, Gia=?, MoTa=?, SoLuongTon=? WHERE MaSanPham=?",
-                    [$name,$price,$desc,$qty,$id]
-                );
-            }
+            $ok = self::exec(
+                $conn,
+                "UPDATE sanpham
+             SET TenSanPham=?, Gia=?, GiaCu=?, MoTa=?, SoLuongTon=?, HinhAnh=?, IsPromo=?
+             WHERE MaSanPham=?",
+                [$name, $price, $oldPrice, $desc, $qty, $imgPath, $promo, $id]
+            );
             if (!$ok) return self::respond(false, 'Cập nhật sản phẩm thất bại!');
         } else {
-            $ok = self::exec($conn,
-                "INSERT INTO sanpham (TenSanPham, Gia, MoTa, HinhAnh, SoLuongTon, TrangThai) VALUES (?,?,?,?,?,1)",
-                [$name,$price,$desc,$imgPath,$qty]
+            $ok = self::exec(
+                $conn,
+                "INSERT INTO sanpham (TenSanPham, Gia, GiaCu, MoTa, HinhAnh, SoLuongTon, TrangThai, IsPromo)
+             VALUES (?,?,?,?,?,?,1,?)",
+                [$name, $price, $oldPrice, $desc, $imgPath, $qty, $promo]
             );
             if (!$ok) return self::respond(false, 'Thêm sản phẩm thất bại!');
             $id = (int)$conn->insert_id;
         }
 
-        // Gắn danh mục 1-1 theo tên từ dropdown
+        // ===== Gán danh mục theo tên (nếu có) =====
         if ($cat !== '') {
             $dmId = self::ensureCategory($conn, $cat);
             if ($dmId) {
                 self::exec($conn, "DELETE FROM sanpham_danhmuc WHERE MaSanPham=?", [$id]);
-                self::exec($conn, "INSERT INTO sanpham_danhmuc (MaSanPham, MaDanhMuc) VALUES (?,?)", [$id,$dmId]);
+                self::exec($conn, "INSERT INTO sanpham_danhmuc (MaSanPham, MaDanhMuc) VALUES (?,?)", [$id, $dmId]);
             }
         }
 
-        return self::respond(true, 'Lưu sản phẩm thành công!', ['id'=>$id]);
+        // Trả về để JS có thể cập nhật ngay ảnh/tên/giá trong bảng (không bắt buộc dùng)
+        return self::respond(true, 'Lưu sản phẩm thành công!', [
+            'id'      => $id,
+            'product' => [
+                'MaSanPham'  => $id,
+                'TenSanPham' => $name,
+                'Gia'        => $price,
+                'GiaCu'      => $oldPrice,
+                'MoTa'       => $desc,
+                'SoLuongTon' => $qty,
+                'IsPromo'    => $promo,
+                'HinhAnh'    => $imgPath, // ví dụ: /Webmarket/image/sp55.jpg
+            ]
+        ]);
     }
+
 
     /** Xoá sản phẩm */
     private static function delete(mysqli $conn): array
@@ -287,4 +368,34 @@ class Product_Controller
         header('Location: products.php?'. ($ok ? 'success=' : 'error=') . urlencode($message));
         exit;
     }
+    private static function getOne(mysqli $conn): array
+    {
+        $id = (int)($_GET['id'] ?? 0);
+        if ($id <= 0) return self::respond(false, 'Thiếu id');
+
+        $sql = "SELECT
+              s.MaSanPham,
+              s.TenSanPham,
+              s.Gia,
+              s.GiaCu,
+              s.SoLuongTon,
+              s.HinhAnh,
+              IFNULL(s.IsPromo, 0)           AS IsPromo,
+              IFNULL(dm.TenDanhMuc, '')       AS TenDanhMuc
+            FROM sanpham s
+            LEFT JOIN sanpham_danhmuc spdm ON spdm.MaSanPham = s.MaSanPham
+            LEFT JOIN danhmucsanpham dm          ON dm.MaDanhMuc   = spdm.MaDanhMuc
+            WHERE s.MaSanPham = ?";
+
+        $stmt = $conn->prepare($sql);
+        if (!$stmt) return self::respond(false, 'DB error');
+        $stmt->bind_param('i', $id);
+        $stmt->execute();
+        $res = $stmt->get_result()->fetch_assoc();
+
+        if (!$res) return self::respond(false, 'Không tìm thấy sản phẩm');
+
+        return self::respond(true, 'OK', ['product' => $res]);
+    }
+
 }

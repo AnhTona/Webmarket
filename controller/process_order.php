@@ -1,6 +1,6 @@
 <?php
 // process_order.php
-include __DIR__ . '/../../db.php'; // Kết nối cơ sở dữ liệu (Giả sử $conn là đối tượng kết nối)
+include __DIR__ . '/../../database.php'; // Kết nối cơ sở dữ liệu (Giả sử $conn là đối tượng kết nối)
 session_start();
 
 // Đặt header để trả về JSON

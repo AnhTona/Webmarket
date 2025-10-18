@@ -82,7 +82,7 @@ class TablesController
             }
         }
         if ($seats !== null) {
-            $where[] = 'b.SoLuongBan = ?';
+            $where[] = 'b.SoGhe = ?';
             $params[] = $seats;
             $types   .= 'i';
         }
@@ -93,7 +93,7 @@ class TablesController
         $sql = "
             SELECT 
                 b.MaBan AS id,
-                b.SoLuongBan AS seats,
+                b.SoGhe AS seats,
                 b.TrangThai AS status_code,
                 (
                     SELECT COUNT(*) 
@@ -145,14 +145,14 @@ class TablesController
         }
 
         if ($id) {
-            $stmt = $conn->prepare("UPDATE bantrongquan SET SoLuongBan=?, TrangThai=? WHERE MaBan=?");
+            $stmt = $conn->prepare("UPDATE bantrongquan SET SoGhe=?, TrangThai=? WHERE MaBan=?");
             $stmt->bind_param('iii', $seats, $code, $id);
             $ok = $stmt->execute();
             $stmt->close();
             if (!$ok) return ['ok'=>false,'message'=>'Cập nhật thất bại'];
             return ['ok'=>true,'message'=>'Cập nhật thành công'];
         } else {
-            $stmt = $conn->prepare("INSERT INTO bantrongquan (SoLuongBan, TrangThai) VALUES (?,?)");
+            $stmt = $conn->prepare("INSERT INTO bantrongquan (SoGhe, TrangThai) VALUES (?,?)");
             $stmt->bind_param('ii', $seats, $code);
             $ok = $stmt->execute();
             if (!$ok) { $stmt->close(); return ['ok'=>false,'message'=>'Thêm mới thất bại']; }

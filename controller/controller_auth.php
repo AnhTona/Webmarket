@@ -1,15 +1,12 @@
 <?php
 // Dùng chung cho Google & Facebook
 declare(strict_types=1);
-
-use Webmarket\model\Database;
-
 if (session_status() !== PHP_SESSION_ACTIVE) session_start();
 
 /* load Database */
 $paths = [ __DIR__.'/../model/database.php', __DIR__.'/../database.php' ];
 foreach ($paths as $p) { if (file_exists($p)) { require_once $p; break; } }
-if (!class_exists('Webmarket\model\Database')) { http_response_code(500); exit('database.php not found'); }
+if (!class_exists('Database')) { http_response_code(500); exit('database.php not found'); }
 
 /* PDO dùng chung */
 $db = $db ?? (new Database())->connect();
@@ -62,7 +59,7 @@ function handleOAuthLogin(PDO $db, array $profile): never {
     $_SESSION['email']    = $user['Email'] ?? null;
     $_SESSION['name']     = $user['HoTen'] ?? null;
     $_SESSION['role']     = $user['VaiTro'] ?? 'USER';
-    redirect('/Webmarket/index.php');
+    redirect('/Webmarket/view/html/home.php');
   }
 
   // 2) chưa có -> INSERT
@@ -80,5 +77,5 @@ function handleOAuthLogin(PDO $db, array $profile): never {
   $_SESSION['email']    = $email;
   $_SESSION['name']     = $fullName;
   $_SESSION['role']     = 'USER';
-  redirect('/Webmarket/index.php');
+  redirect('/Webmarket/view/html/home.php');
 }
