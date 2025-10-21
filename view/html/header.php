@@ -1,19 +1,18 @@
 <header class="header">
     <div class="logo">
-        <img src="image/logo.png" alt="Logo Trà & Bánh Trung Thu">
+        <img src="../../image/logo.png" alt="Logo Trà & Bánh Trung Thu">
     </div>
     <nav>
         <ul>
-            <li><a href="home.php" class="active">Trang Chủ</a></li>
+            <li><a href="home.php">Trang Chủ</a></li>
             <li><a href="products.php">Sản Phẩm</a></li>
-            <li><a href="promo.php">Khuyến Mãi</a></li>
             <li><a href="contact.php">Liên Hệ</a></li>
         </ul>
     </nav>
     <div class="search-container">
         <form class="search-form" action="search_results.php" method="GET">
             <input type="text" id="search-input" name="keyword" placeholder="Tìm kiếm sản phẩm...">
-            <button type="submit" class="search-submit-btn" aria-label="Tìm kiếm">🔍</button>
+            <button type="submit" class="search-submit-btn"> <i class="fa-solid fa-magnifying-glass"></i> </button>
         </form>
         <div class="autocomplete-results" id="autocomplete-results"></div>
     </div>

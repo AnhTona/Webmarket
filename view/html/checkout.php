@@ -12,11 +12,12 @@ session_start();
     <title>Thanh Toán Đơn Hàng - Hương Trà</title>
     <link rel="stylesheet" href="../css/home.css">
     <link rel="stylesheet" href="../css/checkout.css"> <link rel="stylesheet" href="../css/responsive.css">
+    <link rel="stylesheet" href="../css/search.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600&display=swap" rel="stylesheet">
 </head>
 <body>
-    <?php include 'header.php'; ?> 
+    <?php include 'header.php'; ?>
 
     <main class="checkout-container">
         <div class="breadcrumb">
@@ -88,12 +89,12 @@ session_start();
                             <p><strong>Số tài khoản:</strong> 0071000888888</p>
                             <p><strong>Chủ tài khoản:</strong> CÔNG TY CP HƯƠNG TRÀ</p>
                             <p class="transfer-note"><strong>Nội dung:</strong> TTDH-[SỐ ĐƠN HÀNG]-SĐT bạn</p>
-                            <img src="image/qr_code_vcb.png" alt="Mã QR Vietcombank" class="qr-code"> 
+                            <img src="../../image/qr_code_vcb.png" alt="Mã QR Vietcombank" class="qr-code">
                         </div>
                         
                         <div class="form-group upload-receipt-group">
                             <label for="receipt_file"><i class="fas fa-upload"></i> Upload Biên lai (Tùy chọn)</label>
-                            <input type="file" id="receipt_file" name="receipt_file" accept="image/*,application/pdf">
+                            <input type="file" id="receipt_file" name="receipt_file" accept="../../image/*,application/pdf">
                             <small class="hint">Giúp shop xác nhận thanh toán nhanh hơn.</small>
                         </div>
                     </div>

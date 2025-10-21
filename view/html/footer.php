@@ -1,11 +1,10 @@
 <!-- footer.php -->
 <link rel="stylesheet" href="../css/home.css">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 <footer class="main-footer">
     <div class="footer-content">
         <!-- Bên trái: Hình ảnh -->
         <div class="footer-left">
-            <img src="image/sp13.jpg" alt="Huong Trà Store Front" class="footer-shop-image-new">
+            <img src="../../image/sp13.jpg" alt="Huong Trà Store Front" class="footer-shop-image-new">
         </div>
 
         <!-- Bên phải: Thông tin -->
@@ -42,13 +41,13 @@
                 <div class="signature-elements">
                     <div class="triangle-container">
                         <div class="triangle">
-                            <img src="image/banh1.png" alt="Ảnh 1">
+                            <img src="../../image/banh1.png" alt="Ảnh 1">
                         </div>
                         <div class="triangle">
-                            <img src="image/tra1.png" alt="Ảnh 2">
+                            <img src="../../image/tra1.png" alt="Ảnh 2">
                         </div>
                         <div class="triangle">
-                            <img src="image/tra2.png" alt="Ảnh 3">
+                            <img src="../../image/tra2.png" alt="Ảnh 3">
                         </div>
                     </div>
                 </div>
@@ -59,7 +58,7 @@
                 <p>Mã số thuế: 0317575005 do Sở KH-ĐT TP.HCM cấp ngày 08/11/2022</p>
                 <p>    Địa chỉ: 129 Nguyễn Thị Minh Khai, P.Bến Thành, Q.1, TP. Hồ Chí Minh</p>
                 <p>Văn phòng giao dịch: 11-13-15 Nguyễn Trãi, P.Nguyễn Cư Trinh, Q.1,  TP. Hồ Chí Minh</p>
-                <img src="image/bo-cong-thuong.png" alt="Chứng nhận Bộ Công Thương" class="bct-logo">
+                <img src="../../image/bo-cong-thuong.png" alt="Chứng nhận Bộ Công Thương" class="bct-logo">
             </div>
 
             <div class="footer-bottom-text">
