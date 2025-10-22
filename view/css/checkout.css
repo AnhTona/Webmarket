@@ -364,3 +364,87 @@ body {
         padding-bottom: 20px;
     }
 }
+/* --- CHỌN BÀN  --- */
+.table-info-group {
+    margin-bottom: 30px;
+    position: relative;
+}
+
+.table-info-group label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 10px;
+    color: #4d0702;
+    font-size: 1.1em;
+    transition: color 0.3s;
+}
+
+.table-info-group select,
+.table-info-group input {
+    width: 100%;
+    padding: 14px 16px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 1em;
+    background: #fff;
+    color: #333;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+    appearance: none; /* Xóa giao diện mặc định của select */
+    -webkit-appearance: none;
+    -moz-appearance: none;
+}
+
+.table-info-group select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238f2c24' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 16px center;
+    padding-right: 40px; /* Đảm bảo không che biểu tượng mũi tên */
+}
+
+.table-info-group input:focus,
+.table-info-group select:focus {
+    border-color: #8f2c24;
+    box-shadow: 0 0 8px rgba(143, 44, 36, 0.2);
+    outline: none;
+}
+
+.table-info-group select option:disabled {
+    color: #999;
+    background: #f5f5f5;
+}
+
+.table-info-group .hint {
+    font-size: 0.85em;
+    color: #666;
+    margin-top: 8px;
+    display: block;
+    font-style: italic;
+}
+
+/* Hiệu ứng hover */
+.table-info-group select:hover,
+.table-info-group input:hover {
+    border-color: #8f2c24;
+    background: #fffaf7;
+}
+
+/* Trạng thái lỗi (nếu cần validate) */
+.table-info-group.error input,
+.table-info-group.error select {
+    border-color: #e74c3c;
+    background: #fff5f5;
+}
+
+.table-info-group.error .hint {
+    color: #e74c3c;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+    .table-info-group select,
+    .table-info-group input {
+        padding: 12px;
+        font-size: 0.95em;
+    }
+}
