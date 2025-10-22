@@ -1,7 +1,7 @@
 <?php
 // Load database connection trước
 if (!isset($conn)) {
-    require_once __DIR__ . '/../../model/db.php';
+    require_once __DIR__ . '/../../model/database.php';
 }
 
 // Load controller thông báo

@@ -1,0 +1,5 @@
+Options -Indexes
+DirectoryIndex index.php home.php index.html
+
+RewriteEngine On
+RewriteRule ^$ view/html/home.php [L]

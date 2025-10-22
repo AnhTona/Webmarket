@@ -169,12 +169,12 @@ class OrdersPage {
 
     async fetchOrderDetails(id) {
         try {
-            console.log('Fetching order details for ID:', id); // Debug log
+            console.log('Fetching order details for ID:', id);
             const res = await fetch(
                 `orders.php?ajax=1&action=view&id=${encodeURIComponent(id)}`
             );
             const data = await res.json();
-            console.log('Received data:', data); // Debug log
+            console.log('Received data:', data);
             return data.ok ? data : null;
         } catch (e) {
             console.error('Error fetching order details:', e);
@@ -183,7 +183,7 @@ class OrdersPage {
     }
 
     openDetailModal(data) {
-        console.log('Opening modal with data:', data); // Debug log
+        console.log('Opening modal with data:', data);
 
         if (!data) {
             alert('Không thể tải chi tiết đơn hàng');
@@ -283,7 +283,7 @@ class OrdersPage {
         this.modal.style.display = 'flex';
         this.modal.classList.add('active');
 
-        console.log('Modal opened successfully'); // Debug log
+        console.log('Modal opened successfully');
     }
 
     getPaymentMethodName(method) {
@@ -309,49 +309,48 @@ class OrdersPage {
 
             console.log('Button clicked:', btn.className, 'ID:', id);
 
-            if (btn.classList.contains('view-detail') || btn.classList.contains('view-order')) {
-                console.log('View button clicked');
-                // Gọi API để lấy URL hóa đơn
-                try {
-                    const res = await fetch(
-                        `orders.php?ajax=1&action=view&id=${encodeURIComponent(id)}`
-                    );
-                    const data = await res.json();
-
-                    if (data.ok && data.invoice_url) {
-                        // Mở hóa đơn trong tab mới
-                        window.open(data.invoice_url, '_blank');
-                    } else {
-                        alert(data.message || 'Không thể tải hóa đơn');
-                    }
-                } catch (e) {
-                    console.error('Error loading invoice:', e);
-                    alert('Lỗi khi tải hóa đơn');
-                }
+            if (btn.classList.contains('view-detail') || btn.classList.contains('view-order') || btn.classList.contains('btn-view')) {
+                const base = location.pathname.replace(/\/[^\/]*$/, '/');
+                window.open(base + 'invoice.php?id=' + encodeURIComponent(id), '_blank');
                 return;
             }
 
             if (btn.classList.contains('confirm-order')) {
                 if (!confirm('Xác nhận đơn hàng này?')) return;
                 const j = await this.api('confirm', id);
-                alert(j.message || (j.ok ? 'Đã xác nhận' : 'Lỗi'));
-                if (j.ok) location.reload();
+                if (j.ok) {
+                    alert(j.message || 'Đã xác nhận');
+                    // Tự động reload trang
+                    location.reload();
+                } else {
+                    alert(j.message || 'Lỗi khi xác nhận đơn hàng');
+                }
                 return;
             }
 
             if (btn.classList.contains('complete-order')) {
                 if (!confirm('Đánh dấu Hoàn thành đơn này?')) return;
                 const j = await this.api('complete', id);
-                alert(j.message || (j.ok ? 'Đã hoàn thành' : 'Lỗi'));
-                if (j.ok) location.reload();
+                if (j.ok) {
+                    alert(j.message || 'Đã hoàn thành');
+                    // Tự động reload trang
+                    location.reload();
+                } else {
+                    alert(j.message || 'Lỗi khi hoàn thành đơn hàng');
+                }
                 return;
             }
 
             if (btn.classList.contains('cancel-order')) {
                 if (!confirm('Hủy đơn hàng này?')) return;
                 const j = await this.api('cancel', id);
-                alert(j.message || (j.ok ? 'Đã hủy' : 'Lỗi'));
-                if (j.ok) location.reload();
+                if (j.ok) {
+                    alert(j.message || 'Đã hủy');
+                    // Tự động reload trang
+                    location.reload();
+                } else {
+                    alert(j.message || 'Lỗi khi hủy đơn hàng');
+                }
                 return;
             }
         });
@@ -360,5 +359,5 @@ class OrdersPage {
 
 document.addEventListener('DOMContentLoaded', () => {
     window.__ordersPage = new OrdersPage();
-    console.log('OrdersPage initialized'); // Debug log
+    console.log('OrdersPage initialized');
 });
