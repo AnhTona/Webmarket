@@ -1,6 +1,3 @@
-// checkout.js (đã bỏ SĐT, dùng email để check rank; giữ nguyên các chức năng khác)
-
-// ===== Helpers format & cart =====
 function number_format(number) {
     return new Intl.NumberFormat('vi-VN', { style: 'decimal' }).format(number);
 }
@@ -249,6 +246,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Kiểm tra điều kiện submit ban đầu
     checkFormValidity();
 });
+
 // Submit form xử lý đơn hàng
 document.getElementById('checkout-form').addEventListener('submit', async function(e) {
     e.preventDefault();

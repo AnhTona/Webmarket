@@ -1,9 +1,7 @@
 <?php
-// controller/process_order.php
 
 require_once __DIR__ . '/../model/database.php';
 session_start();
-
 class MembershipService {
     private $db;
 
@@ -13,7 +11,7 @@ class MembershipService {
 
     public function getDiscountRate(string $rank): float {
         $rates = [
-            'Mới' => 0.00,
+            'Má»›i' => 0.00,
             'Bronze' => 0.02,
             'Silver' => 0.05,
             'Gold' => 0.10
@@ -32,7 +30,7 @@ class MembershipService {
         ");
 
         $result = $stmt->fetch_assoc();
-        return $result ? $result['TenHang'] : 'Mới';
+        return $result ? $result['TenHang'] : 'Má»›i';
     }
 }
 
@@ -54,7 +52,6 @@ class CalculationService {
             'subtotal' => $subtotal,
             'vat' => $vat,
             'discount' => $discountAmount,
-            'discount_rate' => $discountRate,
             'grand_total' => round($grandTotal)
         ];
     }
@@ -72,7 +69,7 @@ class UserManager {
     public function findOrCreateByEmail(string $email, string $name = ''): array {
         $conn = $this->db->getConnection();
 
-        // Tìm user theo email
+        // TÃ¬m user theo email
         $stmt = $conn->prepare("
             SELECT MaNguoiDung, HoTen, Hang, TongChiTieu 
             FROM nguoidung 
@@ -84,9 +81,9 @@ class UserManager {
         $result = $stmt->get_result();
 
         if ($result->num_rows > 0) {
-            // User đã tồn tại
+            // User Ä‘Ã£ tá»“n táº¡i
             $row = $result->fetch_assoc();
-            $rank = $row['Hang'] ?: 'Mới';
+            $rank = $row['Hang'] ?: 'Má»›i';
             $spent = (float)$row['TongChiTieu'];
 
             return [
@@ -97,19 +94,19 @@ class UserManager {
                 'discount_rate' => $this->membershipService->getDiscountRate($rank)
             ];
         } else {
-            // Tạo user mới
+            // Táº¡o user má»›i
             return $this->createNewUser($conn, $email, $name);
         }
     }
 
     private function createNewUser($conn, string $email, string $name): array {
-        $finalName = !empty($name) ? $name : 'Khách vãng lai';
+        $finalName = !empty($name) ? $name : 'KhÃ¡ch vÃ£ng lai';
         $username = explode('@', $email)[0] . '_' . time();
         $defaultPassword = password_hash('123456', PASSWORD_BCRYPT);
 
         $stmt = $conn->prepare("
             INSERT INTO nguoidung (Username, HoTen, Email, MatKhau, Hang, TongChiTieu, NgayTao) 
-            VALUES (?, ?, ?, ?, 'Mới', 0, NOW())
+            VALUES (?, ?, ?, ?, 'Má»›i', 0, NOW())
         ");
         $stmt->bind_param("ssss", $username, $finalName, $email, $defaultPassword);
         $stmt->execute();
@@ -117,7 +114,7 @@ class UserManager {
         return [
             'id' => $conn->insert_id,
             'name' => $finalName,
-            'rank' => 'Mới',
+            'rank' => 'Má»›i',
             'spent' => 0.0,
             'discount_rate' => 0.0
         ];
@@ -134,7 +131,7 @@ class OrderManager {
     public function getOrCreateCart(int $userId): int {
         $conn = $this->db->getConnection();
 
-        // Tìm giỏ hàng hiện tại
+        // TÃ¬m giá» hÃ ng hiá»‡n táº¡i
         $stmt = $conn->prepare("
             SELECT MaGioHang 
             FROM giohang 
@@ -150,7 +147,7 @@ class OrderManager {
             return (int)$result->fetch_assoc()['MaGioHang'];
         }
 
-        // Tạo giỏ hàng mới
+        // Táº¡o giá» hÃ ng má»›i
         $stmt = $conn->prepare("INSERT INTO giohang (MaNguoiDung, NgayTao) VALUES (?, NOW())");
         $stmt->bind_param("i", $userId);
         $stmt->execute();
@@ -161,7 +158,7 @@ class OrderManager {
     public function createOrder(int $userId, int $cartId, $tableNumber, float $totalAmount, string $note): int {
         $conn = $this->db->getConnection();
 
-        // Lấy MaBan từ table_number
+        // Láº¥y MaBan tá»« table_number
         $tableId = $this->getTableIdByNumber($tableNumber);
 
         $stmt = $conn->prepare("
@@ -192,7 +189,7 @@ class OrderManager {
     }
 
     private function getTableIdByNumber($tableNumber): ?int {
-        // Trích xuất số từ chuỗi (vd: "Bàn #5" -> 5)
+        // TrÃ­ch xuáº¥t sá»‘ tá»« chuá»—i (vd: "BÃ n #5" -> 5)
         preg_match('/\d+/', $tableNumber, $matches);
         return isset($matches[0]) ? (int)$matches[0] : null;
     }
@@ -260,22 +257,22 @@ class OrderProcessor {
         try {
             $conn->begin_transaction();
 
-            // 1. Tìm hoặc tạo user theo Email
+            // 1. TÃ¬m hoáº·c táº¡o user theo Email
             $user = $this->userManager->findOrCreateByEmail(
                 $orderData['email'],
                 $orderData['customer_name']
             );
 
-            // 2. Tạo hoặc lấy giỏ hàng
+            // 2. Táº¡o hoáº·c láº¥y giá» hÃ ng
             $cartId = $this->orderManager->getOrCreateCart($user['id']);
 
-            // 3. Tính toán tổng tiền
+            // 3. TÃ­nh toÃ¡n tá»•ng tiá»n
             $totals = $this->calculationService->calculateTotals(
                 $orderData['cart'],
                 $user['discount_rate']
             );
 
-            // 4. Tạo đơn hàng
+            // 4. Táº¡o Ä‘Æ¡n hÃ ng
             $orderId = $this->orderManager->createOrder(
                 $user['id'],
                 $cartId,
@@ -284,24 +281,21 @@ class OrderProcessor {
                 $orderData['customer_note']
             );
 
-            // 5. Lưu chi tiết đơn hàng (sản phẩm)
+            // 5. LÆ°u chi tiáº¿t Ä‘Æ¡n hÃ ng (sáº£n pháº©m)
             $this->orderManager->saveOrderItems($orderId, $orderData['cart']);
 
-            // 6. Ghi nhận thanh toán (chỉ CASH cho demo)
+            // 6. Ghi nháº­n thanh toÃ¡n (chá»‰ CASH cho demo)
             $this->paymentManager->recordPayment(
                 $orderId,
                 'CASH',
                 $totals['grand_total']
             );
 
-            // 7. Cập nhật tổng chi tiêu của user (để tính hạng sau này)
-            $this->updateUserSpending($user['id'], $totals['grand_total']);
-
             $conn->commit();
 
             return [
                 'success' => true,
-                'message' => 'Đặt hàng thành công!',
+                'message' => 'Äáº·t hÃ ng thÃ nh cÃ´ng!',
                 'order_id' => $orderId,
                 'redirect' => "/Webmarket/view/html/order_success.php?order_id=" . $orderId
             ];
@@ -310,20 +304,6 @@ class OrderProcessor {
             $conn->rollback();
             throw $e;
         }
-    }
-
-    /**
-     * Cập nhật tổng chi tiêu của user
-     */
-    private function updateUserSpending(int $userId, float $amount): void {
-        $conn = $this->db->getConnection();
-        $stmt = $conn->prepare("
-            UPDATE nguoidung 
-            SET TongChiTieu = TongChiTieu + ? 
-            WHERE MaNguoiDung = ?
-        ");
-        $stmt->bind_param("di", $amount, $userId);
-        $stmt->execute();
     }
 
     private function validateAndPrepareData(array $postData): array {
@@ -338,14 +318,14 @@ class OrderProcessor {
         if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
             return [
                 'is_valid' => false,
-                'message' => 'Email không hợp lệ.'
+                'message' => 'Email khÃ´ng há»£p lá»‡.'
             ];
         }
 
         if (empty($tableNumber) || !is_array($cart) || count($cart) === 0) {
             return [
                 'is_valid' => false,
-                'message' => 'Vui lòng điền đủ thông tin và đảm bảo giỏ hàng không trống.'
+                'message' => 'Vui lÃ²ng Ä‘iá»n Ä‘á»§ thÃ´ng tin vÃ  Ä‘áº£m báº£o giá» hÃ ng khÃ´ng trá»‘ng.'
             ];
         }
 
@@ -366,7 +346,7 @@ class OrderProcessor {
 header('Content-Type: application/json; charset=UTF-8');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    echo json_encode(['success' => false, 'message' => 'Phương thức không hợp lệ.']);
+    echo json_encode(['success' => false, 'message' => 'PhÆ°Æ¡ng thá»©c khÃ´ng há»£p lá»‡.']);
     exit;
 }
 
@@ -379,7 +359,7 @@ try {
     error_log("Order processing error: " . $e->getMessage());
     echo json_encode([
         'success' => false,
-        'message' => 'Lỗi hệ thống khi tạo đơn hàng. Vui lòng thử lại.',
+        'message' => 'Lá»—i há»‡ thá»‘ng khi táº¡o Ä‘Æ¡n hÃ ng. Vui lÃ²ng thá»­ láº¡i.',
         'error' => $e->getMessage()
     ], JSON_UNESCAPED_UNICODE);
 }

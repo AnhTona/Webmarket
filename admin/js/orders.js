@@ -307,12 +307,27 @@ class OrdersPage {
             const id = tr?.dataset?.id;
             if (!id) return;
 
-            console.log('Button clicked:', btn.className, 'ID:', id); // Debug log
+            console.log('Button clicked:', btn.className, 'ID:', id);
 
             if (btn.classList.contains('view-detail') || btn.classList.contains('view-order')) {
-                console.log('View button clicked'); // Debug log
-                const data = await this.fetchOrderDetails(id);
-                this.openDetailModal(data);
+                console.log('View button clicked');
+                // Gọi API để lấy URL hóa đơn
+                try {
+                    const res = await fetch(
+                        `orders.php?ajax=1&action=view&id=${encodeURIComponent(id)}`
+                    );
+                    const data = await res.json();
+
+                    if (data.ok && data.invoice_url) {
+                        // Mở hóa đơn trong tab mới
+                        window.open(data.invoice_url, '_blank');
+                    } else {
+                        alert(data.message || 'Không thể tải hóa đơn');
+                    }
+                } catch (e) {
+                    console.error('Error loading invoice:', e);
+                    alert('Lỗi khi tải hóa đơn');
+                }
                 return;
             }
 

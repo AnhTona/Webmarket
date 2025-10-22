@@ -1,0 +1,13 @@
+# Chỉ cho phép truy cập từ PHP, không cho truy cập trực tiếp
+<Files "*.html">
+    Order Deny,Allow
+    Deny from all
+</Files>
+
+# Cho phép truy cập từ localhost (development)
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{HTTP_REFERER} !^$
+    RewriteCond %{HTTP_REFERER} !^http(s)?://(www\.)?yourdomain.com [NC]
+    RewriteRule \.(html)$ - [NC,F,L]
+</IfModule>

@@ -1,8 +1,9 @@
 <?php
 // admin/controller/Orders_Controller.php
-// PHP 8+, MySQLi. KHÔNG sửa layout/JS. Chỉ cung cấp data và các API AJAX.
+// Thêm chức năng xem hóa đơn đã lưu
 
 require_once __DIR__ . '/../../model/database.php';
+require_once __DIR__ . '/../html/Invoice_Generator.php';
 
 class OrdersController
 {
@@ -36,12 +37,19 @@ class OrdersController
                     case 'cancel':   return self::json(self::updateStatus('CANCELLED'));
                     case 'complete': return self::json(self::updateStatus('DONE'));
                     case 'change_status': return self::json(self::changeStatusByText());
-                    case 'view':     return self::json(self::fetchDetails());
+                    case 'view':     return self::json(self::viewInvoice());
+                    case 'generate_invoice': return self::json(self::generateInvoice());
                     default:         return self::json(['ok'=>false,'message'=>'Thiếu hoặc sai action']);
                 }
             } catch (Throwable $e) {
                 return self::json(['ok'=>false,'message'=>'Lỗi: '.$e->getMessage()]);
             }
+        }
+
+        // Xử lý view invoice HTML trực tiếp
+        if (isset($_GET['view_invoice'])) {
+            self::displayInvoice();
+            exit;
         }
 
         [$orders, $page, $totalPages] = self::fetchList();
@@ -57,6 +65,67 @@ class OrdersController
     {
         $db = Database::getInstance();
         return $db->getConnection();
+    }
+
+    /* ============ INVOICE HANDLING ============ */
+
+    /**
+     * Xem hóa đơn (trả về thông tin cho AJAX)
+     */
+    private static function viewInvoice(): array
+    {
+        $id = (int)($_GET['id'] ?? 0);
+        if (!$id) return ['ok'=>false, 'message'=>'Thiếu id'];
+
+        // Kiểm tra xem hóa đơn đã tồn tại chưa
+        if (!InvoiceGenerator::invoiceExists($id)) {
+            // Tự động tạo hóa đơn nếu chưa có
+            $generated = InvoiceGenerator::generateInvoice($id);
+            if (!$generated) {
+                return ['ok'=>false, 'message'=>'Không thể tạo hóa đơn'];
+            }
+        }
+
+        // Trả về URL để mở hóa đơn
+        return [
+            'ok' => true,
+            'invoice_url' => "orders.php?view_invoice=1&id={$id}"
+        ];
+    }
+
+    /**
+     * Hiển thị hóa đơn HTML
+     */
+    private static function displayInvoice(): void
+    {
+        $id = (int)($_GET['id'] ?? 0);
+        if (!$id) {
+            echo "Thiếu mã đơn hàng";
+            return;
+        }
+
+        $invoicePath = InvoiceGenerator::getInvoicePath($id);
+        if (!$invoicePath) {
+            echo "Không tìm thấy hóa đơn";
+            return;
+        }
+
+        // Hiển thị file hóa đơn
+        readfile($invoicePath);
+    }
+
+    /**
+     * Tạo hóa đơn thủ công (nếu cần)
+     */
+    private static function generateInvoice(): array
+    {
+        $id = (int)($_GET['id'] ?? 0);
+        if (!$id) return ['ok'=>false, 'message'=>'Thiếu id'];
+
+        $success = InvoiceGenerator::generateInvoice($id);
+        return $success
+            ? ['ok'=>true, 'message'=>'Đã tạo hóa đơn thành công']
+            : ['ok'=>false, 'message'=>'Không thể tạo hóa đơn'];
     }
 
     /* ============ LIST ============ */
@@ -156,7 +225,7 @@ class OrdersController
                 'NgayDat'    => date('Y-m-d H:i', strtotime($r['NgayDat'] ?? 'now')),
                 'TongTien'   => (float)($r['TongTien'] ?? 0),
                 'TrangThai'  => $uiStatus,
-                'TrangThaiDB'=> $dbStatus, // Thêm trạng thái DB gốc để debug
+                'TrangThaiDB'=> $dbStatus,
             ];
         }
         $stmt->close();
@@ -164,115 +233,9 @@ class OrdersController
         return [$rows, $page, $totalPages];
     }
 
-    /* ============ DETAILS ============ */
-
-    private static function fetchDetails(): array
-    {
-        $conn = self::getConnection();
-        $id = (int)($_GET['id'] ?? 0);
-        if (!$id) return ['ok'=>false, 'message'=>'Thiếu id'];
-
-        // Lấy thông tin đơn hàng
-        $sqlOrder = "
-            SELECT 
-                dh.MaDonHang,
-                dh.NgayDat,
-                dh.TongTien,
-                dh.TrangThai,
-                nd.HoTen,
-                nd.Email,
-                nd.Hang,
-                dh.MaBan,
-                tt.PhuongThuc
-            FROM donhang dh
-            JOIN nguoidung nd ON nd.MaNguoiDung = dh.MaNguoiDung
-            LEFT JOIN thanhtoan tt ON tt.MaDonHang = dh.MaDonHang
-            WHERE dh.MaDonHang = ?
-        ";
-        $stmt = $conn->prepare($sqlOrder);
-        $stmt->bind_param('i', $id);
-        $stmt->execute();
-        $orderInfo = $stmt->get_result()->fetch_assoc();
-        $stmt->close();
-
-        if (!$orderInfo) {
-            return ['ok'=>false, 'message'=>'Không tìm thấy đơn hàng'];
-        }
-
-        // Lấy chi tiết sản phẩm
-        $sql = "
-            SELECT sp.TenSanPham, ct.SoLuong,
-                   COALESCE(ct.DonGia, sp.Gia, 0) AS Gia,
-                   (ct.SoLuong * COALESCE(ct.DonGia, sp.Gia, 0)) AS Tong
-            FROM chitietdonhang ct
-            JOIN sanpham sp ON sp.MaSanPham = ct.MaSanPham
-            WHERE ct.MaDonHang = ?
-        ";
-        $stmt = $conn->prepare($sql);
-        $stmt->bind_param('i', $id);
-        $stmt->execute();
-        $rs = $stmt->get_result();
-
-        $items = [];
-        $subtotal = 0;
-        while ($r = $rs->fetch_assoc()) {
-            $itemTotal = (float)$r['Tong'];
-            $subtotal += $itemTotal;
-
-            $items[] = [
-                'TenSanPham' => (string)$r['TenSanPham'],
-                'SoLuong'    => (int)$r['SoLuong'],
-                'Gia'        => (float)$r['Gia'],
-                'Tong'       => $itemTotal,
-            ];
-        }
-        $stmt->close();
-
-        // Tính toán VAT và discount
-        $rank = $orderInfo['Hang'] ?? 'Mới';
-        $totalAmount = (float)$orderInfo['TongTien'];
-
-        // Tỷ lệ giảm giá theo hạng
-        $discountRates = [
-            'Mới' => 0.00,
-            'Bronze' => 0.02,
-            'Silver' => 0.05,
-            'Gold' => 0.10
-        ];
-        $discountRate = $discountRates[$rank] ?? 0.00;
-
-        // Tính ngược: TongTien = (Subtotal - Discount) * 1.08
-        // => Subtotal = TongTien / ((1 - discount_rate) * 1.08)
-        $calculatedSubtotal = $totalAmount / ((1 - $discountRate) * 1.08);
-        $discountAmount = $calculatedSubtotal * $discountRate;
-        $subtotalAfterDiscount = $calculatedSubtotal - $discountAmount;
-        $vat = $subtotalAfterDiscount * 0.08;
-
-        return [
-            'ok' => true,
-            'order' => [
-                'MaDon' => (string)$orderInfo['MaDonHang'],
-                'KhachHang' => (string)$orderInfo['HoTen'],
-                'Email' => (string)$orderInfo['Email'],
-                'HangTV' => $rank,
-                'Ban' => $orderInfo['MaBan'] ? ('Bàn '.$orderInfo['MaBan']) : '-',
-                'NgayDat' => date('d/m/Y H:i', strtotime($orderInfo['NgayDat'])),
-                'PhuongThuc' => (string)($orderInfo['PhuongThuc'] ?? 'CASH'),
-                'TrangThai' => self::DB2UI[$orderInfo['TrangThai']] ?? $orderInfo['TrangThai'],
-            ],
-            'items' => $items,
-            'calculations' => [
-                'subtotal' => round($calculatedSubtotal, 2),
-                'discount_rate' => $discountRate,
-                'discount_amount' => round($discountAmount, 2),
-                'vat' => round($vat, 2),
-                'grand_total' => round($totalAmount, 2),
-            ]
-        ];
-    }
-
     /* ============ STATUS ACTIONS ============ */
 
+    // Trong method updateStatus - dòng 249
     private static function updateStatus(string $to): array
     {
         $conn = self::getConnection();
@@ -283,6 +246,12 @@ class OrdersController
         $stmt->bind_param('si', $to, $id);
         $ok = $stmt->execute();
         $stmt->close();
+
+        // ✅ Tự động tạo hóa đơn khi hoàn thành
+        if ($ok && $to === 'CONFIRMED') {
+            InvoiceGenerator::generateInvoice($id);
+        }
+
         return $ok ? ['ok'=>true,'message'=>'Đã cập nhật trạng thái'] : ['ok'=>false,'message'=>'Cập nhật thất bại'];
     }
 
@@ -321,4 +290,5 @@ class OrdersController
         echo json_encode($payload, JSON_UNESCAPED_UNICODE);
         return $payload;
     }
+
 }
