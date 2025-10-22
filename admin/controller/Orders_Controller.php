@@ -15,6 +15,7 @@ class OrdersController
         'DONE'      => 'Hoàn thành',
         'CANCELLED' => 'Đã hủy',
     ];
+
     private const UI2DB = [
         'Nháp'           => 'DRAFT',
         'Chờ xác nhận'   => 'PLACED',
@@ -126,6 +127,7 @@ class OrdersController
             SELECT 
               dh.MaDonHang,
               nd.HoTen       AS customer_name,
+              nd.Hang        AS customer_rank,
               dh.MaBan       AS ban_id,
               dh.NgayDat,
               dh.TongTien,
@@ -143,13 +145,18 @@ class OrdersController
 
         $rows = [];
         while ($r = $rs->fetch_assoc()) {
+            $dbStatus = trim($r['TrangThai']);
+            $uiStatus = self::DB2UI[$dbStatus] ?? $dbStatus;
+
             $rows[] = [
-                'MaDon'    => (string)$r['MaDonHang'],
-                'KhachHang'=> (string)($r['customer_name'] ?? 'Khách lẻ'),
-                'Ban'      => $r['ban_id'] ? ('Bàn '.$r['ban_id']) : '-',
-                'NgayDat'  => date('Y-m-d H:i', strtotime($r['NgayDat'] ?? 'now')),
-                'TongTien' => (int)($r['TongTien'] ?? 0),
-                'TrangThai'=> self::DB2UI[$r['TrangThai']] ?? $r['TrangThai'],
+                'MaDon'      => (string)$r['MaDonHang'],
+                'KhachHang'  => (string)($r['customer_name'] ?? 'Khách lẻ'),
+                'HangTV'     => (string)($r['customer_rank'] ?? 'Mới'),
+                'Ban'        => $r['ban_id'] ? ('Bàn '.$r['ban_id']) : '-',
+                'NgayDat'    => date('Y-m-d H:i', strtotime($r['NgayDat'] ?? 'now')),
+                'TongTien'   => (float)($r['TongTien'] ?? 0),
+                'TrangThai'  => $uiStatus,
+                'TrangThaiDB'=> $dbStatus, // Thêm trạng thái DB gốc để debug
             ];
         }
         $stmt->close();
@@ -165,6 +172,34 @@ class OrdersController
         $id = (int)($_GET['id'] ?? 0);
         if (!$id) return ['ok'=>false, 'message'=>'Thiếu id'];
 
+        // Lấy thông tin đơn hàng
+        $sqlOrder = "
+            SELECT 
+                dh.MaDonHang,
+                dh.NgayDat,
+                dh.TongTien,
+                dh.TrangThai,
+                nd.HoTen,
+                nd.Email,
+                nd.Hang,
+                dh.MaBan,
+                tt.PhuongThuc
+            FROM donhang dh
+            JOIN nguoidung nd ON nd.MaNguoiDung = dh.MaNguoiDung
+            LEFT JOIN thanhtoan tt ON tt.MaDonHang = dh.MaDonHang
+            WHERE dh.MaDonHang = ?
+        ";
+        $stmt = $conn->prepare($sqlOrder);
+        $stmt->bind_param('i', $id);
+        $stmt->execute();
+        $orderInfo = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+
+        if (!$orderInfo) {
+            return ['ok'=>false, 'message'=>'Không tìm thấy đơn hàng'];
+        }
+
+        // Lấy chi tiết sản phẩm
         $sql = "
             SELECT sp.TenSanPham, ct.SoLuong,
                    COALESCE(ct.DonGia, sp.Gia, 0) AS Gia,
@@ -179,17 +214,61 @@ class OrdersController
         $rs = $stmt->get_result();
 
         $items = [];
+        $subtotal = 0;
         while ($r = $rs->fetch_assoc()) {
+            $itemTotal = (float)$r['Tong'];
+            $subtotal += $itemTotal;
+
             $items[] = [
                 'TenSanPham' => (string)$r['TenSanPham'],
                 'SoLuong'    => (int)$r['SoLuong'],
-                'Gia'        => (int)$r['Gia'],
-                'Tong'       => (int)$r['Tong'],
+                'Gia'        => (float)$r['Gia'],
+                'Tong'       => $itemTotal,
             ];
         }
         $stmt->close();
 
-        return ['ok'=>true,'items'=>$items];
+        // Tính toán VAT và discount
+        $rank = $orderInfo['Hang'] ?? 'Mới';
+        $totalAmount = (float)$orderInfo['TongTien'];
+
+        // Tỷ lệ giảm giá theo hạng
+        $discountRates = [
+            'Mới' => 0.00,
+            'Bronze' => 0.02,
+            'Silver' => 0.05,
+            'Gold' => 0.10
+        ];
+        $discountRate = $discountRates[$rank] ?? 0.00;
+
+        // Tính ngược: TongTien = (Subtotal - Discount) * 1.08
+        // => Subtotal = TongTien / ((1 - discount_rate) * 1.08)
+        $calculatedSubtotal = $totalAmount / ((1 - $discountRate) * 1.08);
+        $discountAmount = $calculatedSubtotal * $discountRate;
+        $subtotalAfterDiscount = $calculatedSubtotal - $discountAmount;
+        $vat = $subtotalAfterDiscount * 0.08;
+
+        return [
+            'ok' => true,
+            'order' => [
+                'MaDon' => (string)$orderInfo['MaDonHang'],
+                'KhachHang' => (string)$orderInfo['HoTen'],
+                'Email' => (string)$orderInfo['Email'],
+                'HangTV' => $rank,
+                'Ban' => $orderInfo['MaBan'] ? ('Bàn '.$orderInfo['MaBan']) : '-',
+                'NgayDat' => date('d/m/Y H:i', strtotime($orderInfo['NgayDat'])),
+                'PhuongThuc' => (string)($orderInfo['PhuongThuc'] ?? 'CASH'),
+                'TrangThai' => self::DB2UI[$orderInfo['TrangThai']] ?? $orderInfo['TrangThai'],
+            ],
+            'items' => $items,
+            'calculations' => [
+                'subtotal' => round($calculatedSubtotal, 2),
+                'discount_rate' => $discountRate,
+                'discount_amount' => round($discountAmount, 2),
+                'vat' => round($vat, 2),
+                'grand_total' => round($totalAmount, 2),
+            ]
+        ];
     }
 
     /* ============ STATUS ACTIONS ============ */

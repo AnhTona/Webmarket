@@ -59,24 +59,24 @@ ob_start();
             </tr>
             </thead>
             <tbody>
-            <?php foreach ($order_list as $order): ?>
+            <?php foreach ($order_list as $order):
+                $status = trim($order['TrangThai']);
+                ?>
                 <tr data-id="<?php echo $order['MaDon']; ?>">
                     <td><?php echo htmlspecialchars($order['MaDon']); ?></td>
                     <td><?php echo htmlspecialchars($order['KhachHang']); ?></td>
                     <td><?php echo htmlspecialchars($order['Ban']); ?></td>
                     <td><?php echo htmlspecialchars($order['NgayDat']); ?></td>
                     <td><?php echo number_format($order['TongTien'], 0, ',', '.') . 'đ'; ?></td>
-                    <td><span class="status-badge status-<?php echo strtolower(str_replace(' ', '-', $order['TrangThai'])); ?>"><?php echo htmlspecialchars($order['TrangThai']); ?></span></td>
+                    <td><span class="status-badge status-<?php echo strtolower(str_replace(' ', '-', $status)); ?>"><?php echo htmlspecialchars($status); ?></span></td>
                     <td>
-                        <?php if ($order['TrangThai'] === 'Chờ xác nhận'): ?>
-                            <button class="btn-action confirm-order" title="Xác nhận">Xác nhận<i class="fas fa-check"></i></button>
-                            <button class="btn-action cancel-order" title="Hủy">Hủy<i class="fas fa-times"></i></button>
-                            <button class="btn-action view-order" title="Xem">Xem<i class="fas fa-eye"></i></button>
-                        <?php elseif ($order['TrangThai'] === 'Đang chuẩn bị'): ?>
-                            <button class="btn-action complete-order" title="Hoàn thành">Hoàn thành<i class="fas fa-check-double"></i></button>
-                            <button class="btn-action cancel-order" title="Hủy"><i class="fas fa-times"></i></button>
-                        <?php elseif ($order['TrangThai'] === 'Hoàn thành'): ?>
-                            <button class="btn-action view-order" title="Xem chi tiết">Xem chi tiết<i class="fas fa-eye"></i></button>
+                        <button class="btn-action view-order" title="Xem chi tiết"><i class="fas fa-eye"></i> Xem</button>
+                        <?php if ($status === 'Chờ xác nhận'): ?>
+                            <button class="btn-action confirm-order" title="Xác nhận"><i class="fas fa-check"></i> Xác nhận</button>
+                            <button class="btn-action cancel-order" title="Hủy"><i class="fas fa-times"></i> Hủy</button>
+                        <?php elseif ($status === 'Đang chuẩn bị'): ?>
+                            <button class="btn-action complete-order" title="Hoàn thành"><i class="fas fa-check-double"></i> Hoàn thành</button>
+                            <button class="btn-action cancel-order" title="Hủy"><i class="fas fa-times"></i> Hủy</button>
                         <?php endif; ?>
                     </td>
                 </tr>

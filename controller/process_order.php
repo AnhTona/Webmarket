@@ -1,181 +1,386 @@
 <?php
-// process_order.php
-include __DIR__ . '/../../database.php'; // Kết nối cơ sở dữ liệu (Giả sử $conn là đối tượng kết nối)
+// controller/process_order.php
+
+require_once __DIR__ . '/../model/database.php';
 session_start();
 
-// Đặt header để trả về JSON
-header('Content-Type: application/json');
+class MembershipService {
+    private $db;
 
-// --- HÀM HỖ TRỢ (Server-side Validation và Calculation) ---
-
-/**
- * Hàm mô phỏng logic tính toán giảm giá thực tế (Server-side validation)
- */
-function getDiscountRateByPhone($conn, $phoneNumber) {
-    // Thực tế: Lấy hạng thành viên từ DB dựa trên SĐT
-    // Hiện tại: Dùng dữ liệu giả định như trong checkout.js để đồng bộ cho bài tập
-    if (empty($phoneNumber) || strlen($phoneNumber) < 9) {
-        return ['rank' => 'Mới', 'rate' => 0.00];
+    public function __construct($database) {
+        $this->db = $database;
     }
 
-    if (str_starts_with($phoneNumber, '090')) { 
-        return ['rank' => 'Vàng', 'rate' => 0.05]; 
-    } else if (str_starts_with($phoneNumber, '098')) { 
-        return ['rank' => 'Kim cương', 'rate' => 0.10]; 
+    public function getDiscountRate(string $rank): float {
+        $rates = [
+            'Mới' => 0.00,
+            'Bronze' => 0.02,
+            'Silver' => 0.05,
+            'Gold' => 0.10
+        ];
+        return $rates[$rank] ?? 0.00;
     }
-    return ['rank' => 'Mới', 'rate' => 0.00];
+
+    public function getRankBySpent(float $spent): string {
+        $conn = $this->db->getConnection();
+        $stmt = $conn->query("
+            SELECT TenHang 
+            FROM cauhinh_hang 
+            WHERE {$spent} >= MinChiTieu 
+            ORDER BY MinChiTieu DESC 
+            LIMIT 1
+        ");
+
+        $result = $stmt->fetch_assoc();
+        return $result ? $result['TenHang'] : 'Mới';
+    }
 }
 
-/**
- * Hàm tính tổng tiền thực tế
- */
-function calculateActualTotal($cart, $discountRate) {
-    $subtotal = 0;
-    foreach ($cart as $item) {
-        // Cần đảm bảo item là object và có các thuộc tính cần thiết
-        if (isset($item->price) && isset($item->quantity)) {
-            $subtotal += $item->price * $item->quantity;
+class CalculationService {
+    private const VAT_RATE = 0.08;
+
+    public function calculateTotals(array $cart, float $discountRate): array {
+        $subtotal = 0;
+
+        foreach ($cart as $item) {
+            $subtotal += $item['price'] * $item['quantity'];
+        }
+
+        $vat = $subtotal * self::VAT_RATE;
+        $discountAmount = $subtotal * $discountRate;
+        $grandTotal = ($subtotal + $vat) - $discountAmount;
+
+        return [
+            'subtotal' => $subtotal,
+            'vat' => $vat,
+            'discount' => $discountAmount,
+            'discount_rate' => $discountRate,
+            'grand_total' => round($grandTotal)
+        ];
+    }
+}
+
+class UserManager {
+    private $db;
+    private $membershipService;
+
+    public function __construct($database) {
+        $this->db = $database;
+        $this->membershipService = new MembershipService($database);
+    }
+
+    public function findOrCreateByEmail(string $email, string $name = ''): array {
+        $conn = $this->db->getConnection();
+
+        // Tìm user theo email
+        $stmt = $conn->prepare("
+            SELECT MaNguoiDung, HoTen, Hang, TongChiTieu 
+            FROM nguoidung 
+            WHERE Email = ? 
+            LIMIT 1
+        ");
+        $stmt->bind_param("s", $email);
+        $stmt->execute();
+        $result = $stmt->get_result();
+
+        if ($result->num_rows > 0) {
+            // User đã tồn tại
+            $row = $result->fetch_assoc();
+            $rank = $row['Hang'] ?: 'Mới';
+            $spent = (float)$row['TongChiTieu'];
+
+            return [
+                'id' => (int)$row['MaNguoiDung'],
+                'name' => $row['HoTen'],
+                'rank' => $rank,
+                'spent' => $spent,
+                'discount_rate' => $this->membershipService->getDiscountRate($rank)
+            ];
+        } else {
+            // Tạo user mới
+            return $this->createNewUser($conn, $email, $name);
         }
     }
-    
-    $VAT_RATE = 0.08;
-    $vat = $subtotal * $VAT_RATE;
-    $totalBeforeDiscount = $subtotal + $vat;
-    
-    $discountAmount = $subtotal * $discountRate;
-    $grandTotal = $totalBeforeDiscount - $discountAmount;
-    
-    return [
-        'subtotal' => $subtotal,
-        'vat' => $vat,
-        'discount' => $discountAmount,
-        'grand_total' => round($grandTotal) // Làm tròn
-    ];
+
+    private function createNewUser($conn, string $email, string $name): array {
+        $finalName = !empty($name) ? $name : 'Khách vãng lai';
+        $username = explode('@', $email)[0] . '_' . time();
+        $defaultPassword = password_hash('123456', PASSWORD_BCRYPT);
+
+        $stmt = $conn->prepare("
+            INSERT INTO nguoidung (Username, HoTen, Email, MatKhau, Hang, TongChiTieu, NgayTao) 
+            VALUES (?, ?, ?, ?, 'Mới', 0, NOW())
+        ");
+        $stmt->bind_param("ssss", $username, $finalName, $email, $defaultPassword);
+        $stmt->execute();
+
+        return [
+            'id' => $conn->insert_id,
+            'name' => $finalName,
+            'rank' => 'Mới',
+            'spent' => 0.0,
+            'discount_rate' => 0.0
+        ];
+    }
 }
 
-// ----------------------------------------------------------------
+class OrderManager {
+    private $db;
+
+    public function __construct($database) {
+        $this->db = $database;
+    }
+
+    public function getOrCreateCart(int $userId): int {
+        $conn = $this->db->getConnection();
+
+        // Tìm giỏ hàng hiện tại
+        $stmt = $conn->prepare("
+            SELECT MaGioHang 
+            FROM giohang 
+            WHERE MaNguoiDung = ? 
+            ORDER BY NgayTao DESC 
+            LIMIT 1
+        ");
+        $stmt->bind_param("i", $userId);
+        $stmt->execute();
+        $result = $stmt->get_result();
+
+        if ($result->num_rows > 0) {
+            return (int)$result->fetch_assoc()['MaGioHang'];
+        }
+
+        // Tạo giỏ hàng mới
+        $stmt = $conn->prepare("INSERT INTO giohang (MaNguoiDung, NgayTao) VALUES (?, NOW())");
+        $stmt->bind_param("i", $userId);
+        $stmt->execute();
+
+        return $conn->insert_id;
+    }
+
+    public function createOrder(int $userId, int $cartId, $tableNumber, float $totalAmount, string $note): int {
+        $conn = $this->db->getConnection();
+
+        // Lấy MaBan từ table_number
+        $tableId = $this->getTableIdByNumber($tableNumber);
+
+        $stmt = $conn->prepare("
+            INSERT INTO donhang (MaNguoiDung, MaGioHang, MaBan, NgayDat, TongTien, TrangThai) 
+            VALUES (?, ?, ?, NOW(), ?, 'PLACED')
+        ");
+        $stmt->bind_param("iiid", $userId, $cartId, $tableId, $totalAmount);
+        $stmt->execute();
+
+        return $conn->insert_id;
+    }
+
+    public function saveOrderItems(int $orderId, array $cart): void {
+        $conn = $this->db->getConnection();
+
+        $stmt = $conn->prepare("
+            INSERT INTO chitietdonhang (MaDonHang, MaSanPham, SoLuong, DonGia) 
+            VALUES (?, ?, ?, ?)
+        ");
+
+        foreach ($cart as $item) {
+            $productId = $this->getProductIdByName($item['name']);
+            if ($productId) {
+                $stmt->bind_param("iiid", $orderId, $productId, $item['quantity'], $item['price']);
+                $stmt->execute();
+            }
+        }
+    }
+
+    private function getTableIdByNumber($tableNumber): ?int {
+        // Trích xuất số từ chuỗi (vd: "Bàn #5" -> 5)
+        preg_match('/\d+/', $tableNumber, $matches);
+        return isset($matches[0]) ? (int)$matches[0] : null;
+    }
+
+    private function getProductIdByName(string $productName): ?int {
+        $conn = $this->db->getConnection();
+
+        $stmt = $conn->prepare("SELECT MaSanPham FROM sanpham WHERE TenSanPham = ? LIMIT 1");
+        $stmt->bind_param("s", $productName);
+        $stmt->execute();
+        $result = $stmt->get_result();
+
+        if ($result->num_rows > 0) {
+            return (int)$result->fetch_assoc()['MaSanPham'];
+        }
+        return null;
+    }
+}
+
+class PaymentManager {
+    private $db;
+
+    public function __construct($database) {
+        $this->db = $database;
+    }
+
+    public function recordPayment(int $orderId, string $method, float $amount): int {
+        $conn = $this->db->getConnection();
+
+        $stmt = $conn->prepare("
+            INSERT INTO thanhtoan (MaDonHang, PhuongThuc, SoTien, NgayThanhToan) 
+            VALUES (?, ?, ?, NOW())
+        ");
+        $stmt->bind_param("isd", $orderId, $method, $amount);
+        $stmt->execute();
+
+        return $conn->insert_id;
+    }
+}
+
+class OrderProcessor {
+    private $db;
+    private $userManager;
+    private $orderManager;
+    private $paymentManager;
+    private $calculationService;
+
+    public function __construct($database) {
+        $this->db = $database;
+        $this->userManager = new UserManager($database);
+        $this->orderManager = new OrderManager($database);
+        $this->paymentManager = new PaymentManager($database);
+        $this->calculationService = new CalculationService();
+    }
+
+    public function processOrder(array $postData): array {
+        $orderData = $this->validateAndPrepareData($postData);
+
+        if (!$orderData['is_valid']) {
+            return ['success' => false, 'message' => $orderData['message']];
+        }
+
+        $conn = $this->db->getConnection();
+
+        try {
+            $conn->begin_transaction();
+
+            // 1. Tìm hoặc tạo user theo Email
+            $user = $this->userManager->findOrCreateByEmail(
+                $orderData['email'],
+                $orderData['customer_name']
+            );
+
+            // 2. Tạo hoặc lấy giỏ hàng
+            $cartId = $this->orderManager->getOrCreateCart($user['id']);
+
+            // 3. Tính toán tổng tiền
+            $totals = $this->calculationService->calculateTotals(
+                $orderData['cart'],
+                $user['discount_rate']
+            );
+
+            // 4. Tạo đơn hàng
+            $orderId = $this->orderManager->createOrder(
+                $user['id'],
+                $cartId,
+                $orderData['table_number'],
+                $totals['grand_total'],
+                $orderData['customer_note']
+            );
+
+            // 5. Lưu chi tiết đơn hàng (sản phẩm)
+            $this->orderManager->saveOrderItems($orderId, $orderData['cart']);
+
+            // 6. Ghi nhận thanh toán (chỉ CASH cho demo)
+            $this->paymentManager->recordPayment(
+                $orderId,
+                'CASH',
+                $totals['grand_total']
+            );
+
+            // 7. Cập nhật tổng chi tiêu của user (để tính hạng sau này)
+            $this->updateUserSpending($user['id'], $totals['grand_total']);
+
+            $conn->commit();
+
+            return [
+                'success' => true,
+                'message' => 'Đặt hàng thành công!',
+                'order_id' => $orderId,
+                'redirect' => "/Webmarket/view/html/order_success.php?order_id=" . $orderId
+            ];
+
+        } catch (Exception $e) {
+            $conn->rollback();
+            throw $e;
+        }
+    }
+
+    /**
+     * Cập nhật tổng chi tiêu của user
+     */
+    private function updateUserSpending(int $userId, float $amount): void {
+        $conn = $this->db->getConnection();
+        $stmt = $conn->prepare("
+            UPDATE nguoidung 
+            SET TongChiTieu = TongChiTieu + ? 
+            WHERE MaNguoiDung = ?
+        ");
+        $stmt->bind_param("di", $amount, $userId);
+        $stmt->execute();
+    }
+
+    private function validateAndPrepareData(array $postData): array {
+        $email = strtolower(trim($postData['email'] ?? ''));
+        $tableNumber = $postData['table_number'] ?? '';
+        $customerName = $postData['customer_name'] ?? '';
+        $customerNote = $postData['customer_note'] ?? '';
+        $cartData = $postData['cart_data'] ?? '[]';
+
+        $cart = json_decode($cartData, true);
+
+        if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return [
+                'is_valid' => false,
+                'message' => 'Email không hợp lệ.'
+            ];
+        }
+
+        if (empty($tableNumber) || !is_array($cart) || count($cart) === 0) {
+            return [
+                'is_valid' => false,
+                'message' => 'Vui lòng điền đủ thông tin và đảm bảo giỏ hàng không trống.'
+            ];
+        }
+
+        return [
+            'is_valid' => true,
+            'email' => $email,
+            'table_number' => $tableNumber,
+            'customer_name' => $customerName,
+            'customer_note' => $customerNote,
+            'cart' => $cart
+        ];
+    }
+}
+
+// ============================================
+// MAIN EXECUTION
+// ============================================
+header('Content-Type: application/json; charset=UTF-8');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     echo json_encode(['success' => false, 'message' => 'Phương thức không hợp lệ.']);
     exit;
 }
 
-// 1. Lấy và kiểm tra dữ liệu
-$table_number = $_POST['table_number'] ?? '';
-$phone_number = $_POST['phone_number'] ?? '';
-$customer_name = $_POST['customer_name'] ?? '';
-$customer_note = $_POST['customer_note'] ?? '';
-$payment_method = $_POST['payment_method'] ?? 'cash';
-$cart_data = $_POST['cart_data'] ?? '[]';
-
-$cart = json_decode($cart_data);
-
-if (empty($table_number) || empty($phone_number) || count($cart) === 0) {
-    echo json_encode(['success' => false, 'message' => 'Vui lòng điền đủ thông tin bắt buộc và đảm bảo giỏ hàng không trống.']);
-    exit;
-}
-
 try {
-    // Bắt đầu Transaction
-    $conn->begin_transaction();
-    
-    // 2. Xử lý thông tin Khách hàng (UPSERT: Tìm kiếm & Cập nhật/Chèn)
-    $membership = getDiscountRateByPhone($conn, $phone_number);
-    $rank = $membership['rank'];
-
-    $stmt_cust = $conn->prepare("SELECT customer_id, customer_name FROM customers WHERE phone = ?");
-    $stmt_cust->bind_param("s", $phone_number);
-    $stmt_cust->execute();
-    $result_cust = $stmt_cust->get_result();
-    $customer_id = null;
-    
-    if ($result_cust->num_rows > 0) {
-        // Khách hàng đã tồn tại (UPDATE)
-        $customer_row = $result_cust->fetch_assoc();
-        $customer_id = $customer_row['customer_id'];
-        
-        // Giữ tên đã lưu nếu SĐT là thành viên, hoặc dùng tên mới nếu tên khách hàng gửi lên không trống
-        $final_name = !empty($customer_row['customer_name']) ? $customer_row['customer_name'] : (!empty($customer_name) ? $customer_name : 'Khách vãng lai');
-
-        $stmt_update = $conn->prepare("UPDATE customers SET rank = ?, customer_name = ? WHERE customer_id = ?");
-        $stmt_update->bind_param("ssi", $rank, $final_name, $customer_id);
-        $stmt_update->execute();
-    } else {
-        // Khách hàng mới (INSERT)
-        $final_name = !empty($customer_name) ? $customer_name : 'Khách vãng lai';
-        // Giả sử bảng customers có cột 'rank' và 'status' mặc định là 'Mới'/'Hoạt động'
-        $stmt_insert = $conn->prepare("INSERT INTO customers (customer_name, phone, rank, created_at) VALUES (?, ?, ?, NOW())");
-        $stmt_insert->bind_param("sss", $final_name, $phone_number, $rank);
-        $stmt_insert->execute();
-        $customer_id = $conn->insert_id;
-    }
-    
-    // 3. Tính toán lại tổng tiền (Server-side validation)
-    $totals = calculateActualTotal($cart, $membership['rate']);
-    
-    // 4. Xử lý Upload Biên lai (Nếu có)
-    $receipt_path = null;
-    if ($payment_method === 'transfer' && isset($_FILES['receipt_file']) && $_FILES['receipt_file']['error'] === UPLOAD_ERR_OK) {
-        $upload_dir = __DIR__ . '/../../uploads/receipts/';
-        if (!is_dir($upload_dir)) {
-            mkdir($upload_dir, 0777, true);
-        }
-        $file_ext = pathinfo($_FILES['receipt_file']['name'], PATHINFO_EXTENSION);
-        $file_name = 'receipt_' . time() . '_' . $customer_id . '.' . $file_ext;
-        $target_file = $upload_dir . $file_name;
-
-        if (move_uploaded_file($_FILES['receipt_file']['tmp_name'], $target_file)) {
-            $receipt_path = 'uploads/receipts/' . $file_name; // Đường dẫn tương đối để lưu DB
-        }
-    }
-
-    // 5. Lưu Order vào bảng `orders`
-    $order_status = ($payment_method === 'cash' || $payment_method === 'momo') ? 'Waiting' : 'Pending Payment'; // Waiting cho thanh toán tại chỗ, Pending Payment cho chuyển khoản
-    $order_code = 'HD' . date('YmdHis') . $customer_id; // Mã đơn hàng
-
-    // Giả sử bảng orders có các cột: order_code, customer_id, table_number, total_amount, discount_amount, vat_amount, payment_method, customer_note, receipt_path, status, created_at
-    $stmt_order = $conn->prepare("INSERT INTO orders (order_code, customer_id, table_number, total_amount, discount_amount, vat_amount, payment_method, customer_note, receipt_path, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())");
-    $stmt_order->bind_param("sisidddsss", 
-        $order_code, 
-        $customer_id, 
-        $table_number, 
-        $totals['grand_total'], 
-        $totals['discount'], 
-        $totals['vat'], 
-        $payment_method, 
-        $customer_note, 
-        $receipt_path, 
-        $order_status
-    );
-    $stmt_order->execute();
-    $order_id = $conn->insert_id;
-
-    // 6. Lưu chi tiết Order vào bảng `order_items`
-    // Giả sử bảng order_items có các cột: order_id, product_name, price, quantity, note
-    $stmt_item = $conn->prepare("INSERT INTO order_items (order_id, product_name, price, quantity, note) VALUES (?, ?, ?, ?, ?)");
-    foreach ($cart as $item) {
-        $stmt_item->bind_param("isdis", 
-            $order_id, 
-            $item->name, 
-            $item->price, 
-            $item->quantity, 
-            $item->note
-        );
-        $stmt_item->execute();
-    }
-
-    // 7. Hoàn tất Transaction
-    $conn->commit();
-
-    // 8. Trả về kết quả thành công
-    echo json_encode(['success' => true, 'message' => 'Đặt hàng thành công!', 'order_code' => $order_code]);
-
+    $db = Database::getInstance();
+    $orderProcessor = new OrderProcessor($db);
+    $result = $orderProcessor->processOrder($_POST);
+    echo json_encode($result, JSON_UNESCAPED_UNICODE);
 } catch (Exception $e) {
-    // Rollback nếu có lỗi
-    $conn->rollback();
     error_log("Order processing error: " . $e->getMessage());
-    echo json_encode(['success' => false, 'message' => 'Lỗi hệ thống khi tạo đơn hàng. Vui lòng thử lại.', 'error' => $e->getMessage()]);
+    echo json_encode([
+        'success' => false,
+        'message' => 'Lỗi hệ thống khi tạo đơn hàng. Vui lòng thử lại.',
+        'error' => $e->getMessage()
+    ], JSON_UNESCAPED_UNICODE);
 }
-
-$conn->close();
 ?>

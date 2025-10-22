@@ -249,3 +249,39 @@ document.addEventListener('DOMContentLoaded', () => {
     // Kiểm tra điều kiện submit ban đầu
     checkFormValidity();
 });
+// Submit form xử lý đơn hàng
+document.getElementById('checkout-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+
+    const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+
+    if (cart.length === 0) {
+        alert('Giỏ hàng trống!');
+        return;
+    }
+
+    const formData = new FormData(this);
+    formData.append('cart_data', JSON.stringify(cart));
+
+    console.log('Sending cart:', cart); // Debug
+
+    try {
+        const response = await fetch('/Webmarket/controller/process_order.php', {
+            method: 'POST',
+            body: formData
+        });
+
+        const result = await response.json();
+        console.log('Response:', result); // Debug
+
+        if (result.success) {
+            localStorage.removeItem('cart');
+            window.location.href = result.redirect;
+        } else {
+            alert(result.message);
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Lỗi kết nối server');
+    }
+});
