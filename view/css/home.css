@@ -60,6 +60,27 @@ body {
     color: #8f2c24;
 }
 
+/* icon giỏ hàng */
+.cart-icon {
+    position: relative;
+    font-size: 22px;
+    text-decoration: none;
+}
+
+.cart-count {
+    position: absolute;
+    top: -6px;
+    right: -10px;
+    background: red;
+    color: white;
+    font-size: 12px;
+    font-weight: bold;
+    padding: 2px 6px;
+    border-radius: 50%;
+    display: none; /* mặc định ẩn */
+}
+
+
 /* ===== HERO SLIDER (Giữ nguyên) ===== */
 .hero {
     position: relative;
@@ -174,7 +195,7 @@ body {
 .price {
     font-size: 1em;
     font-weight: bold;
-    color:  #8f2c24;
+    color: #8f2c24;
     margin: 5px 0;
     transition: opacity 0.3s ease;
 }
@@ -494,7 +515,7 @@ body {
     padding: 0px 5%;
     background-color: #f8f8f8; /* Màu nền nhẹ nhàng */
     text-align: center;
-  
+ 
 }
 
 .inspiration-title {
@@ -533,7 +554,7 @@ body {
     border-radius: 8px;
     margin-bottom: 20px;
     aspect-ratio: 3/4; /* Tỉ lệ khung hình đẹp cho ảnh ngang */
-     box-shadow: 0 6px 15px rgba(0,0,0,0.08); /* thêm bóng nhẹ cho khung ảnh */
+    box-shadow: 0 6px 15px rgba(0,0,0,0.08); /* thêm bóng nhẹ cho khung ảnh */
 }
 
 .card-image-wrapper img {
@@ -541,7 +562,7 @@ body {
     height: 100%;
     object-fit: cover;
     transition: transform 0.6s ease; /* Hiệu ứng chuyển động mượt */
-   
+    
 }
 
 /* Hiệu ứng phóng to hình ảnh khi hover */
@@ -573,7 +594,7 @@ body {
     font-size: 1em;
     color: #666;
     line-height: 1.6;
-     margin-bottom: 50px;
+    margin-bottom: 50px;
 }
 
 
@@ -629,23 +650,24 @@ body {
 /* ==================================== */
 /* 4. FOOTER SECTION */
 /* ==================================== */
-/* FOOTER CHUNG */
+
+/* FOOTER CHUNG (Desktop/Màn hình lớn) */
 .main-footer {
-    background-color: #FDF9F3;
+    background-color: #fffaf5;
     font-family: Arial, sans-serif;
     color: #4A4A4A;
-    margin-top: 10px;       /* Tạo khoảng cách với section trên */
-    padding: 10px 0;        /* Padding trên–dưới */
+    margin-top: 10px;
+    padding: 50px 0px 0;
+    border-top: 2px solid #d9d9d9;
 }
 
 .footer-content {
     display: flex;
     max-width: 1600px;
     margin: 0 auto;
-    align-items: stretch;   /* Cột trái & phải cao bằng nhau */
-    min-height: 400px;      /* Giảm chiều cao footer */
-    margin-top: -50px;  /* Đẩy lên trên 10px */
-    
+    align-items: stretch;
+    min-height: 400px;
+    margin-top: -50px; 
 }
 
 .footer-left {
@@ -656,21 +678,18 @@ body {
 
 .footer-shop-image-new {
     width: 100%;
-    height: 100%;            
+    height: 100%;
     object-fit: cover;
-    border-radius: 0 200px 0px 0;  
-    max-height: 700px;       /* Chiều cao ảnh khớp với footer */
-
-    
-    
+    border-radius: 0 200px 0px 0;
+    max-height: 700px;
 }
 
 /* ========================== */
-/* CỘT BÊN PHẢI */
+/* CỘT BÊN PHẢI (Desktop) */
 /* ========================== */
 .footer-right {
     flex: 0 0 55%;
-    padding: 30px 4%;        
+    padding: 30px 4%;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
@@ -697,8 +716,7 @@ body {
     cursor: pointer;
     overflow: visible;
     transition: border 0.3s ease;
-     margin-bottom: 20px;
-
+    margin-bottom: 20px;
 }
 
 .triangle img {
@@ -724,13 +742,15 @@ body {
 }
 
 /* ========================== */
-/* PHẦN THÔNG TIN */
+/* PHẦN THÔNG TIN (Desktop) */
 /* ========================== */
+
+/* ĐÃ SỬA: Đảm bảo khối trước .footer-info-grid .info-block:nth-child(2) được đóng đúng */
 .footer-info-grid {
     display: flex;
-    margin-bottom: 0px;     
+    margin-bottom: 0px;
     padding-left: 20px;
-    gap: 35px;               
+    gap: 35px;
 }
 
 .info-block h3 {
@@ -750,23 +770,21 @@ body {
 }
 
 .footer-info-grid .info-block:nth-child(2) {
-    margin-left: 30px;   /* Nhích sang phải 20px, bạn có thể tăng/giảm */
-  
+    margin-left: 30px;
 }
 
 
 .footer-contact-info {
     display: flex;
-    gap: 40px;               
-    margin-bottom: 30px;     
+    gap: 40px;
+    margin-bottom: 30px;
     padding-left: 20px;
     margin-top: 30px;
-     margin-left: 70px; /* Nhích sang phải */
-    
+    margin-left: 70px;
 }
 
 .email-item {
-    margin-left: 80px; /* Nhích sang phải */
+    margin-left: 80px;
 }
 
 .contact-item {
@@ -789,7 +807,7 @@ body {
 
 .footer-signature {
     margin-bottom: 20px;
-     padding-left: 200px;   /* Đẩy toàn bộ sang phải */
+    padding-left: 200px;
 }
 
 .footer-signature p {
@@ -800,27 +818,27 @@ body {
     padding-left: 30px;
 }
 .company-details {
-       font-family: 'Playfair Display', serif;
+    font-family: 'Playfair Display', serif;
     font-size: 0.9em;
     line-height: 1.8;
     color: #666;
     margin-bottom: 50px;
-    padding-left: 100px;   /* dịch qua phải nhiều hơn */
+    padding-left: 100px;
 }
 
 .company-details p:first-child strong {
-       font-family: 'Playfair Display', serif;
-    font-weight: 900;     /* in đậm hơn */
-    color:#8f2c24;          /* cho màu đậm rõ ràng */
-    font-size: 1.2em;       /* có thể tăng size nhẹ */
-    padding-left: 120px;   /* dịch qua phải nhiều hơn */
+    font-family: 'Playfair Display', serif;
+    font-weight: 900;
+    color:#8f2c24;
+    font-size: 1.2em;
+    padding-left: 120px;
     font-weight: bold;
 }
 
 .bct-logo {
     width: 150px;
-     margin-top: -30px;  /* Đẩy lên trên 10px */
-       margin-left: 150px; /* Nhích sang phải */
+    margin-top: -30px;
+    margin-left: 150px;
 }
 
 .footer-bottom-text {
@@ -829,33 +847,154 @@ body {
     color: #999;
     padding-top: 20px;
     border-top: 1px solid #e0e0e0;
-     margin-top: -50px;  /* Đẩy lên trên 10px */
-
-}
-footer.main-footer {
-    padding: 50px 0px 0;           /* bỏ padding dưới */
-    background-color: #fffaf5;      /* hoặc giữ màu bạn đang dùng */
-    border-top: 2px solid #d9d9d9; /* đường viền ngăn cách với phần trên */
-}
-/* icon giỏ hàng */
-.cart-icon {
-  position: relative;
-  font-size: 22px;
-  text-decoration: none;
+    margin-top: -50px;
 }
 
-.cart-count {
-  position: absolute;
-  top: -6px;
-  right: -10px;
-  background: red;
-  color: white;
-  font-size: 12px;
-  font-weight: bold;
-  padding: 2px 6px;
-  border-radius: 50%;
-  display: none; /* mặc định ẩn */
+/* ==================================== */
+/* 4.1 MEDIA QUERIES - RESPONSIVE DESIGN */
+/* ==================================== */
+
+/* Dành cho Máy tính bảng & Màn hình nhỏ (dưới 992px) */
+@media (max-width: 992px) {
+    /* Đảm bảo nội dung footer không bị tràn */
+    .footer-content {
+        max-width: 95%;
+        margin-top: 0; /* Bỏ margin âm */
+        min-height: auto; /* Bỏ min-height cứng */
+    }
+
+    /* Điều chỉnh tỷ lệ cột: Ảnh (40%), Thông tin (60%) */
+    .footer-left {
+        flex: 0 0 40%;
+    }
+
+    .footer-right {
+        flex: 0 0 60%;
+        padding: 20px 2%; /* Giảm padding ngang */
+    }
+
+    /* Cân bằng lưới thông tin */
+    .footer-info-grid {
+        gap: 15px; /* Giảm khoảng cách giữa 2 khối */
+        padding-left: 0;
+        flex-wrap: wrap; /* Cho phép các khối tự xuống dòng nếu cần */
+    }
+    
+    /* Bỏ nhích trái/phải đặc biệt cho các khối con */
+    .footer-info-grid .info-block:nth-child(2) {
+        margin-left: 10px; /* Giảm khoảng cách nhích */
+    }
+
+    /* Điều chỉnh khối liên hệ */
+    .footer-contact-info {
+        gap: 15px;
+        margin-left: 0;
+        padding-left: 0;
+        flex-direction: column; /* Đưa số điện thoại và email xuống dòng */
+        align-items: flex-start; /* Căn lề trái lại */
+    }
+
+    .email-item {
+        margin-left: 0; /* Bỏ nhích sang phải */
+    }
+
+    /* Ký hiệu */
+    .footer-signature {
+        padding-left: 50px; /* Giảm đẩy sang phải */
+    }
+
+    /* Chi tiết công ty */
+    .company-details {
+        padding-left: 20px;
+    }
+    .company-details p:first-child strong {
+        padding-left: 40px;
+    }
+    .bct-logo {
+        margin-left: 70px;
+    }
 }
 
+/* Dành cho Điện thoại di động (dưới 600px) */
+@media (max-width: 600px) {
+    .main-footer {
+        padding: 20px 0 0; /* Giảm padding trên dưới */
+    }
+    .footer-content {
+        flex-direction: column; /* Chuyển từ ngang sang dọc */
+    }
 
+    /* Ảnh sẽ chiếm toàn bộ chiều rộng (100%) và nằm trên cùng */
+    .footer-left {
+        flex: 0 0 100%;
+        padding-right: 0;
+    }
 
+    .footer-shop-image-new {
+        /* Bỏ bo góc đặc biệt để ảnh hiển thị đẹp hơn khi chiếm hết chiều rộng */
+        border-radius: 0;
+        max-height: 300px; /* Giảm chiều cao ảnh */
+    }
+
+    /* Cột thông tin cũng chiếm toàn bộ chiều rộng (100%) */
+    .footer-right {
+        flex: 0 0 100%;
+        padding: 30px 5%; /* Thêm padding đều hai bên */
+    }
+
+    /* Gỡ bỏ cột trong lưới thông tin */
+    .footer-info-grid {
+        flex-direction: column; /* Hai khối thông tin xếp chồng lên nhau */
+        gap: 25px;
+        padding-left: 0;
+    }
+
+    /* Bỏ nhích đặc biệt giữa hai khối */
+    .footer-info-grid .info-block:nth-child(2) {
+        margin-left: 0;
+    }
+    
+    .info-block {
+        text-align: center; /* Căn giữa thông tin địa chỉ */
+    }
+
+    /* Căn giữa các thông tin liên hệ */
+    .footer-contact-info {
+        flex-direction: column;
+        align-items: center; /* Căn giữa các mục */
+        gap: 15px;
+        margin-top: 20px;
+        margin-bottom: 20px;
+        margin-left: 0;
+    }
+
+    /* Ký hiệu & Tam giác */
+    .footer-signature {
+        padding-left: 0;
+        text-align: center;
+    }
+    .footer-signature p {
+        padding-left: 0;
+    }
+    .triangle-container {
+        justify-content: center; /* Căn giữa các hình tam giác */
+        gap: 20px; /* Giảm khoảng cách giữa tam giác */
+    }
+    
+    /* Chi tiết công ty */
+    .company-details {
+        padding-left: 0;
+        text-align: center; /* Căn giữa văn bản */
+    }
+    .company-details p:first-child strong {
+        padding-left: 0;
+        font-size: 1.1em;
+    }
+    .bct-logo {
+        margin-left: 0;
+    }
+
+    .footer-bottom-text {
+        margin-top: 10px;
+    }
+}
