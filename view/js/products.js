@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentFilter = initialCategory;
     let currentSort = 'default';
     let currentPage = 1;
-    const itemsPerPage = 16; // ĐỔI TỪ 50 THÀNH 16
+    const itemsPerPage = 12; // ĐỔI TỪ 50 THÀNH 16
     let productList = [];
 
     // ====== Utils (chuẩn hoá tiếng Việt / so sánh không dấu) ======

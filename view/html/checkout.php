@@ -28,20 +28,18 @@ session_start();
 
         <form id="checkout-form" action="../../controller/process_order.php" method="POST" enctype="multipart/form-data">
             <div class="checkout-grid">
-                
+
                 <section class="checkout-details-column">
                     <h2>1. Thông tin Khách hàng & Bàn</h2>
-                    
+
                     <div class="customer-info-group">
-                        <label for="phone_number">Số Điện Thoại Thành Viên (*)</label>
-                        <input type="tel" id="phone_number" name="phone_number" 
-                            placeholder="Nhập SĐT để nhận ưu đãi thành viên" required 
-                            maxlength="10">
+                        <label for="email">Email thành viên (*)</label>
+                        <input type="email" id="email" name="email" placeholder="Nhập email để áp dụng ưu đãi thành viên" required autocomplete="email">
                         <div id="membership-status" class="membership-status rank-default">
-                            Vui lòng nhập SĐT để kiểm tra hạng.
+                            Vui lòng nhập email để kiểm tra hạng.
                         </div>
                     </div>
-                    
+
                     <div class="table-info-group">
                         <label for="table_number">Số Bàn / Mã Order (*)</label>
                         <input type="text" id="table_number" name="table_number" placeholder="Ví dụ: A10, Bàn 3, Order #001" required>
@@ -74,11 +72,11 @@ session_start();
                         </label>
                         <label class="payment-option">
                             <input type="radio" name="payment_method" value="transfer" id="radio-transfer">
-                            <i class="fas fa-qrcode"></i> Chuyển khoản Thủ công
+                            <i class="fas fa-qrcode"></i> Chuyển khoản Thủ công(Bảo Trì)
                         </label>
                         <label class="payment-option">
                             <input type="radio" name="payment_method" value="momo">
-                            <i class="fas fa-wallet"></i> Ví điện tử (Momo/ZaloPay)
+                            <i class="fas fa-wallet"></i> Ví điện tử (Momo/ZaloPay)(Bảo Trì)
                         </label>
                     </div>
 
@@ -119,7 +117,7 @@ session_start();
                     </div>
 
                     <p class="final-note">Bằng việc bấm nút, bạn xác nhận đặt món. Đơn hàng sẽ được ghi nhận và xử lý.</p>
-                    
+
                     <button type="submit" class="btn-submit-order" disabled id="btn-submit-order">
                          Gửi Order & Thanh Toán <i class="fas fa-check-circle"></i>
                     </button>

@@ -1,6 +1,6 @@
 <?php
-// admin/controller/Dashboard_Controller.php
-// PHP 8+, MySQLi
+declare(strict_types=1);
+require_once __DIR__ . '/../../model/database.php';
 
 class DashboardController
 {
@@ -8,93 +8,112 @@ class DashboardController
     {
         $conn = self::connect();
 
-        // Chỉ trả đúng dữ liệu dashboard cần
-        $kpis   = self::kpis($conn);               // gồm cả % đã format sẵn
-        $series = self::revenueSeries30d($conn);   // [labels[], series[]]
-        $bars7  = self::bars7d($series);           // đã tính pct/title/dow
-
-        $recent = self::recentOrders($conn);       // 10 đơn gần nhất
-
-        $conn->close();
+        // Lấy tất cả dữ liệu dashboard
+        $kpis   = self::kpis($conn);
+        $series = self::revenueSeries30d($conn);
+        $bars7  = self::bars7d($series);
+        $recent = self::recentOrders($conn);
 
         return [
             'kpis'              => $kpis,
             'revenue_series'    => $series,
-            'bars_7d'           => $bars7,               // <—— thêm trường này cho UI
+            'bars_7d'           => $bars7,
             'recent_orders'     => $recent,
-
-            // nếu header có chuông thông báo
-            'notifications'      => $GLOBALS['notifications'] ?? [],
-            'notification_count' => is_array($GLOBALS['notifications'] ?? null) ? count($GLOBALS['notifications']) : 0,
+            'notifications'      => [],
+            'notification_count' => 0,
         ];
     }
 
-    /* ===================== KPIs ===================== */
+    /* ===== DB Connect - OOP Version ===== */
+    private static function connect(): mysqli
+    {
+        $db = Database::getInstance();
+        return $db->getConnection();
+    }
 
+    /* ===================== KPIs ===================== */
     private static function kpis(mysqli $conn): array
     {
-        // Doanh thu tháng này & tháng trước (theo lịch)
+        // 1. DOANH THU THÁNG NÀY (từ bảng thanhtoan)
         $rev_month = (float) self::value($conn, "
-            SELECT COALESCE(SUM(SoTien),0)
+            SELECT COALESCE(SUM(SoTien), 0)
             FROM thanhtoan
-            WHERE YEAR(NgayThanhToan)=YEAR(CURDATE())
-              AND MONTH(NgayThanhToan)=MONTH(CURDATE())
+            WHERE YEAR(NgayThanhToan) = YEAR(CURDATE())
+              AND MONTH(NgayThanhToan) = MONTH(CURDATE())
         ");
 
+        // 2. DOANH THU THÁNG TRƯỚC
         $rev_prev_month = (float) self::value($conn, "
-            SELECT COALESCE(SUM(SoTien),0)
+            SELECT COALESCE(SUM(SoTien), 0)
             FROM thanhtoan
-            WHERE YEAR(NgayThanhToan)=YEAR(DATE_SUB(CURDATE(), INTERVAL 1 MONTH))
-              AND MONTH(NgayThanhToan)=MONTH(DATE_SUB(CURDATE(), INTERVAL 1 MONTH))
+            WHERE YEAR(NgayThanhToan) = YEAR(DATE_SUB(CURDATE(), INTERVAL 1 MONTH))
+              AND MONTH(NgayThanhToan) = MONTH(DATE_SUB(CURDATE(), INTERVAL 1 MONTH))
         ");
 
         $rev_month_change_pct = self::pctChange($rev_prev_month, $rev_month);
         $rev_month_pct_text   = self::formatPct($rev_month_change_pct);
 
-        // Đơn 7 ngày gần nhất & 7 ngày trước đó
+        // 3. ĐƠN HÀNG 7 NGÀY GẦN NHẤT (chỉ tính đơn đã xác nhận trở lên)
         $orders_7d_current = (int) self::value($conn, "
             SELECT COUNT(*) FROM donhang
             WHERE NgayDat >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+              AND TrangThai IN ('PLACED', 'CONFIRMED', 'SHIPPING', 'DONE')
         ");
+
+        // 4. ĐƠN HÀNG 7 NGÀY TRƯỚC ĐÓ
         $orders_7d_prev = (int) self::value($conn, "
             SELECT COUNT(*) FROM donhang
             WHERE NgayDat >= DATE_SUB(CURDATE(), INTERVAL 14 DAY)
               AND NgayDat <  DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+              AND TrangThai IN ('PLACED', 'CONFIRMED', 'SHIPPING', 'DONE')
         ");
+
         $orders_7d_change_pct = self::pctChange($orders_7d_prev, $orders_7d_current);
         $orders_7d_pct_text   = self::formatPct($orders_7d_change_pct);
 
-        // Khách hàng mới 7 ngày
+        // 5. KHÁCH HÀNG MỚI 7 NGÀY (VaiTro='USER')
         $new_customers_7d = (int) self::value($conn, "
             SELECT COUNT(*) FROM nguoidung
-            WHERE VaiTro='USER' AND NgayTao >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+            WHERE VaiTro = 'USER' 
+              AND NgayTao >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
         ");
 
-        // Tồn kho (ưu tiên SoLuongTon -> SoLuong -> 0)
+        // 6. KHÁCH HÀNG MỚI 7 NGÀY TRƯỚC
+        $new_customers_prev = (int) self::value($conn, "
+            SELECT COUNT(*) FROM nguoidung
+            WHERE VaiTro = 'USER'
+              AND NgayTao >= DATE_SUB(CURDATE(), INTERVAL 14 DAY)
+              AND NgayTao <  DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+        ");
+
+        $customers_7d_change_pct = self::pctChange($new_customers_prev, $new_customers_7d);
+        $customers_7d_pct_text   = self::formatPct($customers_7d_change_pct);
+
+        // 7. TỒN KHO (SoLuongTon)
         $stock_total = (int) self::value($conn, "
-            SELECT COALESCE(SUM(SoLuongTon), SUM(SoLuongTon), 0)
+            SELECT COALESCE(SUM(SoLuongTon), 0)
             FROM sanpham
+            WHERE TrangThai = 1
         ");
-
-        // Tổng đơn (nếu cần dùng nơi khác)
-        $total_orders = (int) self::value($conn, "SELECT COUNT(*) FROM donhang");
 
         return [
             'revenue_month'             => $rev_month,
             'revenue_month_change_pct'  => $rev_month_change_pct,
-            'revenue_month_pct_text'    => $rev_month_pct_text,      // <—— text sẵn: "+12%"
+            'revenue_month_pct_text'    => $rev_month_pct_text,
+
             'orders_7d_current'         => $orders_7d_current,
             'orders_7d_change_pct'      => $orders_7d_change_pct,
-            'orders_7d_pct_text'        => $orders_7d_pct_text,      // <—— text sẵn: "-3%"
+            'orders_7d_pct_text'        => $orders_7d_pct_text,
+
             'new_customers_7d'          => $new_customers_7d,
+            'customers_7d_change_pct'   => $customers_7d_change_pct,
+            'customers_7d_pct_text'     => $customers_7d_pct_text,
+
             'stock_total'               => $stock_total,
-            'total_orders'              => $total_orders,
         ];
     }
 
     /* ================== Time series ================== */
-
-    // Doanh thu 30 ngày (để có đủ dữ liệu dựng 7 ngày gần nhất)
     private static function revenueSeries30d(mysqli $conn): array
     {
         $rows = self::rows($conn, "
@@ -114,7 +133,6 @@ class DashboardController
         return ['labels' => $labels, 'series' => $series];
     }
 
-    // Tạo dữ liệu “cột 7 ngày” cho UI (dow, pct, title, value)
     private static function bars7d(array $series): array
     {
         $labelsAll = $series['labels'] ?? [];
@@ -127,13 +145,12 @@ class DashboardController
         for ($i = $start; $i < $cnt; $i++) {
             $day = $labelsAll[$i] ?? date('Y-m-d');
             $val = (int)($seriesAll[$i] ?? 0);
-            $w   = (int)date('N', strtotime($day)); // 1..7
+            $w   = (int)date('N', strtotime($day));
             $dow = ['','T2','T3','T4','T5','T6','T7','CN'][$w];
             $bars[] = ['day'=>$day, 'dow'=>$dow, 'value'=>$val];
             if ($val > $max) $max = $val;
         }
 
-        // nếu rỗng → mock 7 ngày giá trị 0 để UI không vỡ
         if (!$bars) {
             for ($j=6; $j>=0; $j--) {
                 $d = date('Y-m-d', strtotime("-$j day"));
@@ -144,7 +161,7 @@ class DashboardController
         }
 
         foreach ($bars as &$b) {
-            $pct = $max > 0 ? round($b['value'] * 100 / $max, 2) : 5; // min 5%
+            $pct = $max > 0 ? round($b['value'] * 100 / $max, 2) : 5;
             $b['pct'] = max($pct, $b['value'] > 0 ? 8 : 3);
             $million  = $b['value'] >= 1_000_000
                 ? round($b['value'] / 1_000_000) . 'M'
@@ -157,21 +174,24 @@ class DashboardController
     }
 
     /* ================= Recent orders ================= */
-
     private static function recentOrders(mysqli $conn): array
     {
         return self::rows($conn, "
-            SELECT dh.MaDonHang, dh.NgayDat, dh.TongTien, dh.TrangThai,
-                   nd.HoTen AS KhachHang
+            SELECT 
+                dh.MaDonHang, 
+                dh.NgayDat, 
+                dh.TongTien, 
+                dh.TrangThai,
+                COALESCE(nd.HoTen, 'Khách lẻ') AS KhachHang
             FROM donhang dh
             LEFT JOIN nguoidung nd ON nd.MaNguoiDung = dh.MaNguoiDung
+            WHERE dh.TrangThai != 'DRAFT'
             ORDER BY dh.NgayDat DESC
-            LIMIT 10
+            LIMIT 5
         ");
     }
 
     /* ====================== Utils ==================== */
-
     private static function pctChange(float $prev, float $curr): float
     {
         if (abs($prev) < 0.00001) return $curr > 0 ? 100.0 : 0.0;
@@ -185,26 +205,6 @@ class DashboardController
         return ($pct >= 0 ? '+' : '') . $txt . '%';
     }
 
-    private static function connect(): mysqli
-    {
-        // ưu tiên db.php nếu đã mở sẵn kết nối
-        $candidates = [
-            dirname(__DIR__, 2) . '/../../model/db.php',
-            dirname(__DIR__)    . '/../../model/db.php',
-            __DIR__ . '/../../model/db.php',
-        ];
-        foreach ($candidates as $f) { if (is_file($f)) include_once $f; }
-
-        if (isset($GLOBALS['conn']) && $GLOBALS['conn'] instanceof mysqli) {
-            $GLOBALS['conn']->set_charset('utf8mb4');
-            return $GLOBALS['conn'];
-        }
-        $conn = @new mysqli('127.0.0.1', 'root', '', 'webmarket');
-        if ($conn->connect_error) { http_response_code(500); die('DB lỗi: '.$conn->connect_error); }
-        $conn->set_charset('utf8mb4');
-        return $conn;
-    }
-
     private static function value(mysqli $conn, string $sql, array $params = [])
     {
         $stmt = $conn->prepare($sql);
@@ -215,7 +215,10 @@ class DashboardController
         $val = 0;
         if (method_exists($stmt, 'get_result')) {
             $res = $stmt->get_result();
-            if ($res) { $row = $res->fetch_row(); if ($row && isset($row[0])) $val = $row[0]; }
+            if ($res) {
+                $row = $res->fetch_row();
+                if ($row && isset($row[0])) $val = $row[0];
+            }
         } else {
             $stmt->bind_result($val);
             $stmt->fetch();

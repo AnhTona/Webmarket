@@ -2,12 +2,11 @@
 // admin/controller/Orders_Controller.php
 // PHP 8+, MySQLi. KHÔNG sửa layout/JS. Chỉ cung cấp data và các API AJAX.
 
-require_once __DIR__ . '/../../model/db.php';
+require_once __DIR__ . '/../../model/database.php';
 
 class OrdersController
 {
     // Map trạng thái DB ↔ UI
-    // DB: DRAFT, PLACED, CONFIRMED, SHIPPING, DONE, CANCELLED (đoán theo dump của bạn)
     private const DB2UI = [
         'DRAFT'     => 'Nháp',
         'PLACED'    => 'Chờ xác nhận',
@@ -52,6 +51,13 @@ class OrdersController
         ];
     }
 
+    /* ============ DB Connect - OOP Version ============ */
+    private static function getConnection(): mysqli
+    {
+        $db = Database::getInstance();
+        return $db->getConnection();
+    }
+
     /* ============ LIST ============ */
 
     /**
@@ -60,20 +66,19 @@ class OrdersController
      */
     private static function fetchList(): array
     {
-        global $conn;
+        $conn = self::getConnection();
 
-        $search     = trim((string)($_GET['search'] ?? ''));     // tên KH / mã đơn
-        $ym         = trim((string)($_GET['date'] ?? ''));       // yyyy-mm
-        $statusText = trim((string)($_GET['status'] ?? 'All'));  // theo UI
-        $dateFrom   = trim((string)($_GET['date_from'] ?? ''));  // yyyy-mm-dd
-        $dateTo     = trim((string)($_GET['date_to'] ?? ''));    // yyyy-mm-dd
+        $search     = trim((string)($_GET['search'] ?? ''));
+        $ym         = trim((string)($_GET['date'] ?? ''));
+        $statusText = trim((string)($_GET['status'] ?? 'All'));
+        $dateFrom   = trim((string)($_GET['date_from'] ?? ''));
+        $dateTo     = trim((string)($_GET['date_to'] ?? ''));
 
         $where = [];
         $params = [];
         $types = '';
 
         if ($search !== '') {
-            // Tìm theo mã đơn hoặc tên KH / email / phone
             $where[]  = '(dh.MaDonHang LIKE ? OR nd.HoTen LIKE ? OR nd.Email LIKE ? OR nd.SoDienThoai LIKE ?)';
             $kw = "%$search%";
             array_push($params, $kw, $kw, $kw, $kw);
@@ -105,7 +110,6 @@ class OrdersController
 
         $whereSql = $where ? ('WHERE '.implode(' AND ', $where)) : '';
 
-        // Phân trang nhẹ (nếu bạn chưa dùng ở UI thì vẫn trả page=1)
         $page  = max(1, (int)($_GET['page'] ?? 1));
         $limit = 20;
         $offset = ($page - 1) * $limit;
@@ -140,12 +144,11 @@ class OrdersController
         $rows = [];
         while ($r = $rs->fetch_assoc()) {
             $rows[] = [
-                // match đúng keys mà orders.js dùng
                 'MaDon'    => (string)$r['MaDonHang'],
                 'KhachHang'=> (string)($r['customer_name'] ?? 'Khách lẻ'),
                 'Ban'      => $r['ban_id'] ? ('Bàn '.$r['ban_id']) : '-',
                 'NgayDat'  => date('Y-m-d H:i', strtotime($r['NgayDat'] ?? 'now')),
-                'TongTien' => (int)($r['TongTien'] ?? 0), // JS đã format lại
+                'TongTien' => (int)($r['TongTien'] ?? 0),
                 'TrangThai'=> self::DB2UI[$r['TrangThai']] ?? $r['TrangThai'],
             ];
         }
@@ -158,11 +161,10 @@ class OrdersController
 
     private static function fetchDetails(): array
     {
-        global $conn;
+        $conn = self::getConnection();
         $id = (int)($_GET['id'] ?? 0);
         if (!$id) return ['ok'=>false, 'message'=>'Thiếu id'];
 
-        // Lấy chi tiết: tên SP, SL, giá, tổng
         $sql = "
             SELECT sp.TenSanPham, ct.SoLuong,
                    COALESCE(ct.DonGia, sp.Gia, 0) AS Gia,
@@ -192,10 +194,9 @@ class OrdersController
 
     /* ============ STATUS ACTIONS ============ */
 
-    // confirm / cancel / complete
     private static function updateStatus(string $to): array
     {
-        global $conn;
+        $conn = self::getConnection();
         $id = (int)($_GET['id'] ?? 0);
         if (!$id) return ['ok'=>false,'message'=>'Thiếu id'];
 
@@ -206,10 +207,9 @@ class OrdersController
         return $ok ? ['ok'=>true,'message'=>'Đã cập nhật trạng thái'] : ['ok'=>false,'message'=>'Cập nhật thất bại'];
     }
 
-    // change_status: nhận status tiếng Việt từ UI
     private static function changeStatusByText(): array
     {
-        global $conn;
+        $conn = self::getConnection();
         $id = (int)($_GET['id'] ?? 0);
         $statusText = trim((string)($_GET['status'] ?? ''));
         if (!$id || $statusText==='') return ['ok'=>false,'message'=>'Thiếu tham số'];
@@ -228,7 +228,7 @@ class OrdersController
 
     private static function scalar(string $sql, string $types='', array $params=[]): int
     {
-        global $conn;
+        $conn = self::getConnection();
         $stmt = $conn->prepare($sql);
         if ($types) $stmt->bind_param($types, ...$params);
         $stmt->execute();

@@ -11,7 +11,7 @@ $error = $ctx['error'] ?? null;
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Đăng Nhập Admin - Hương Trà</title>
-    <link rel="stylesheet" href="../css/home.css">
+    <link rel="stylesheet" href="/../Webmarket/view/css/home.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600&display=swap" rel="stylesheet">
     <style>
@@ -95,7 +95,7 @@ $error = $ctx['error'] ?? null;
 <body>
     <div class="login-container">
         <div class="logo">
-            <img src="../image/logo.png" alt="Logo Hương Trà">
+            <img src="../../image/logo.png" alt="Logo Hương Trà">
         </div>
         <h2>Đăng Nhập Quản Trị</h2>
 

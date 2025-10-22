@@ -1,7 +1,7 @@
 <?php
 // admin/controller/Auth_Controller.php
 session_start();
-require_once __DIR__ . '/../../model/db.php'; // tạo $conn (MySQLi)
+require_once __DIR__ . '/../../model/database.php'; // File Database OOP mới
 
 class AuthController {
     public static function handle(): array {
@@ -28,7 +28,10 @@ class AuthController {
     }
 
     private static function login(string $username, string $password): array {
-        global $conn;
+        // Sử dụng Database OOP
+        $db = Database::getInstance();
+        $conn = $db->getConnection();
+
         if (!$conn) return [false, 'Không kết nối được DB'];
 
         $u = trim($username);

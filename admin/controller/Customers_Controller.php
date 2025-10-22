@@ -1,5 +1,7 @@
 <?php
 // admin/controller/CustomersController.php
+require_once __DIR__ . '/../../model/database.php';
+
 class CustomersController
 {
     // Ngưỡng hạng & thời gian tính
@@ -7,18 +9,19 @@ class CustomersController
     private const RANK_SILVER_MIN  = 2_000_000;
     private const RANK_GOLD_MIN    = 5_000_000;
 
-// Trạng thái đơn được tính doanh số
+    // Trạng thái đơn được tính doanh số
     private static function paidStatuses(): array {
         return ['CONFIRMED','SHIPPING','DONE'];
     }
 
-// Map tổng chi tiêu -> hạng
+    // Map tổng chi tiêu -> hạng
     private static function rankFromAmount(int|float $amount): string {
         if ($amount >= self::RANK_GOLD_MIN)   return 'Gold';
         if ($amount >= self::RANK_SILVER_MIN) return 'Silver';
         if ($amount > 0)                      return 'Bronze';
         return 'Mới';
     }
+
     public static function handle(): array
     {
         $conn = self::connect();
@@ -27,12 +30,12 @@ class CustomersController
         $action = $_GET['action'] ?? ($_POST['action'] ?? 'index');
 
         if ($method === 'POST' && in_array($action, ['save','create','update'], true)) {
-            return self::save($conn);     // JSON hoặc redirect rồi exit
+            return self::save($conn);
         }
         if ($method === 'GET' && $action === 'delete') {
-            return self::delete($conn);   // JSON hoặc redirect rồi exit
+            return self::delete($conn);
         }
-        if ($action === 'toggle') {       // cho phép GET/POST
+        if ($action === 'toggle') {
             return self::toggle($conn);
         }
         if ($action === 'recompute_all') {
@@ -42,23 +45,11 @@ class CustomersController
         return self::index($conn);
     }
 
-    /* ===== DB Connect ===== */
+    /* ===== DB Connect - OOP Version ===== */
     private static function connect(): mysqli
     {
-        $candidates = [
-            dirname(__DIR__, 2) . '/model/db.php',
-            dirname(__DIR__)    . '/model/db.php',
-        ];
-        foreach ($candidates as $f) { if (is_file($f)) include_once $f; }
-
-        if (isset($GLOBALS['conn']) && $GLOBALS['conn'] instanceof mysqli) {
-            $GLOBALS['conn']->set_charset('utf8mb4');
-            return $GLOBALS['conn'];
-        }
-        $conn = @new mysqli('127.0.0.1', 'root', '', 'webmarket');
-        if ($conn->connect_error) { http_response_code(500); die('DB lỗi: '.$conn->connect_error); }
-        $conn->set_charset('utf8mb4');
-        return $conn;
+        $db = Database::getInstance();
+        return $db->getConnection();
     }
 
     /* ===== Danh sách + Filter ===== */
@@ -68,8 +59,8 @@ class CustomersController
         $page     = max(1, (int)($_GET['page'] ?? 1));
 
         $search   = trim($_GET['q'] ?? ($_GET['search'] ?? ''));
-        $status   = $_GET['status'] ?? 'All';          // Hoạt động | Ngưng | All
-        $rank     = $_GET['rank']   ?? 'All';          // Gold | Silver | Bronze | Mới | All
+        $status   = $_GET['status'] ?? 'All';
+        $rank     = $_GET['rank']   ?? 'All';
         $city     = trim($_GET['city'] ?? '');
         $dateFrom = trim($_GET['date_from'] ?? '');
         $dateTo   = trim($_GET['date_to'] ?? '');
@@ -85,7 +76,7 @@ class CustomersController
             $w[] = ($status === 'Hoạt động') ? 'nd.TrangThai = 1' : 'nd.TrangThai = 0';
         }
         if ($rank !== 'All') {
-            $w[] = 'nd.Hang = ?'; $p[] = $rank; // 'Gold' | 'Silver' | 'Bronze' | 'Mới'
+            $w[] = 'nd.Hang = ?'; $p[] = $rank;
         }
         if ($city !== '') {
             $w[] = 'nd.DiaChi LIKE ?'; $p[] = '%'.$city.'%';
@@ -138,8 +129,8 @@ class CustomersController
         $email   = trim($_POST['email']   ?? '');
         $phone   = trim($_POST['phone']   ?? '');
         $address = trim($_POST['address'] ?? '');
-        $status  = trim($_POST['status']  ?? 'Hoạt động');   // Hoạt động | Ngưng
-        $rank    = trim($_POST['rank']    ?? 'Mới');          // Gold | Silver | Bronze | Mới
+        $status  = trim($_POST['status']  ?? 'Hoạt động');
+        $rank    = trim($_POST['rank']    ?? 'Mới');
 
         if ($name === '' || $email === '' || $phone === '') {
             return self::respond(false, 'Vui lòng nhập đầy đủ Họ tên, Email, SĐT');
@@ -211,9 +202,8 @@ class CustomersController
     private static function bind(mysqli_stmt $stmt, array $params): void {
         $types=''; $bind=[];
         foreach($params as $p){ $types .= is_int($p)?'i':(is_float($p)?'d':'s'); $bind[]=$p; }
-        $stmt->bind_param($types, ...self::byref($bind));
+        $stmt->bind_param($types, ...$bind);
     }
-    private static function byref(array $a): array { foreach($a as $k=>$v){ $a[$k]=&$a[$k]; } return $a; }
 
     private static function isAjax(): bool {
         return (($_GET['ajax'] ?? '') === '1') ||
@@ -230,10 +220,10 @@ class CustomersController
         header('Location: customers.php?'. ($ok?'success=':'error=').urlencode($message));
         exit;
     }
+
     // Tính tổng chi tiêu 12 tháng gần nhất và cập nhật cột Hang cho 1 user
     private static function recomputeRank(mysqli $conn, int $userId): void
     {
-        // Tổng tiền các đơn đã hoàn tất trong 12 tháng gần nhất
         $statuses = self::paidStatuses();
         $placeholders = implode(',', array_fill(0, count($statuses), '?'));
         $sql = "
@@ -242,7 +232,7 @@ class CustomersController
         WHERE MaNguoiDung = ?
           AND TrangThai IN ($placeholders)
           AND NgayDat >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
-    ";
+        ";
         $params = array_merge([$userId], $statuses, [self::RANK_WINDOW_DAYS]);
         $row = self::fetchOne($conn, $sql, $params);
         $amt = (int)($row['amt'] ?? 0);
@@ -251,7 +241,7 @@ class CustomersController
         self::exec($conn, "UPDATE nguoidung SET Hang=? WHERE MaNguoiDung=?", [$rank, $userId]);
     }
 
-    // Recompute cho toàn bộ user (dùng khi bạn đổi ngưỡng/hệ thống tính)
+    // Recompute cho toàn bộ user
     private static function recomputeAll(mysqli $conn): array
     {
         $ids = self::fetchAll($conn, "SELECT MaNguoiDung AS id FROM nguoidung");
@@ -260,5 +250,4 @@ class CustomersController
         }
         return self::respond(true, 'Đã tính lại hạng cho tất cả khách hàng');
     }
-
 }
