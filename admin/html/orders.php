@@ -70,7 +70,7 @@ ob_start();
                     <td><?php echo number_format($order['TongTien'], 0, ',', '.') . 'đ'; ?></td>
                     <td><span class="status-badge status-<?php echo strtolower(str_replace(' ', '-', $status)); ?>"><?php echo htmlspecialchars($status); ?></span></td>
                     <td>
-                        <button class="btn-action view-order" title="Xem chi tiết"><i class="fas fa-eye"></i> Xem</button>
+                        <button class="btn-action view-order" title="Xem chi tiết"><i class="fas fa-eye"></i data-id="<?= (int)$row['MaDon'] ?>"> Xem</button>
                         <?php if ($status === 'Chờ xác nhận'): ?>
                             <button class="btn-action confirm-order" title="Xác nhận"><i class="fas fa-check"></i> Xác nhận</button>
                             <button class="btn-action cancel-order" title="Hủy"><i class="fas fa-times"></i> Hủy</button>

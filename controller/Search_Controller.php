@@ -2,6 +2,9 @@
 declare(strict_types=1);
 header('Content-Type: application/json; charset=UTF-8');
 
+// Include Database class
+require_once __DIR__ . '/../model/database.php';
+
 final class SearchController
 {
     /**
@@ -23,7 +26,7 @@ final class SearchController
      */
     private static function handleSuggestions(): void
     {
-        $conn = self::connect();
+        $conn = self::getConnection();
         $keyword = trim((string)($_GET['keyword'] ?? ''));
 
         if ($keyword === '') {
@@ -63,7 +66,7 @@ final class SearchController
      */
     private static function handleFullSearch(): void
     {
-        $conn = self::connect();
+        $conn = self::getConnection();
         $keyword = trim((string)($_GET['keyword'] ?? ''));
 
         if ($keyword === '') {
@@ -110,26 +113,17 @@ final class SearchController
         exit;
     }
 
-    // ---- DB Connection ----
-    private static function connect(): mysqli
+    // ---- DB Connection using Singleton Pattern ----
+    private static function getConnection(): mysqli
     {
-        $dbPath = __DIR__ . '/../model/db.php';
-        if (!file_exists($dbPath)) {
+        try {
+            $db = Database::getInstance();
+            return $db->getConnection();
+        } catch (Exception $e) {
             http_response_code(500);
-            echo json_encode(['error' => "Không tìm thấy db.php"], JSON_UNESCAPED_UNICODE);
+            echo json_encode(['error' => 'Kết nối DB lỗi: ' . $e->getMessage()], JSON_UNESCAPED_UNICODE);
             exit;
         }
-
-        require $dbPath;
-
-        if (!isset($conn) || !($conn instanceof mysqli) || $conn->connect_error) {
-            http_response_code(500);
-            echo json_encode(['error' => 'Kết nối DB lỗi'], JSON_UNESCAPED_UNICODE);
-            exit;
-        }
-
-        $conn->set_charset('utf8mb4');
-        return $conn;
     }
 
     // ---- Normalize data for UI ----

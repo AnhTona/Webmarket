@@ -1,5 +1,15 @@
 <?php
-include __DIR__ . '/../../model/db.php';
+// Include Database class
+require_once __DIR__ . '/../../model/database.php';
+
+// Lấy connection từ Database singleton (nếu cần dùng)
+try {
+    $db = Database::getInstance();
+    $conn = $db->getConnection();
+} catch (Exception $e) {
+    // Log error nhưng không dừng trang vì home page load data qua JavaScript
+    error_log("Database connection warning: " . $e->getMessage());
+}
 ?>
 
 <!DOCTYPE html>
@@ -113,7 +123,7 @@ include __DIR__ . '/../../model/db.php';
             </div>
             <div class="card-content">
                 <h3>Pha Trà</h3>
-                <p>Chúng tôi sẽ hướng dẫn bạn pha trà theo phong cách trà đạo. Bạn sẽ tìm ra được cách pha trà hợp ý mình để có thể pha trà ở nhà hoặc bất cứ đâu. Thông qua các lễ thức trà được quy định từ đời xưa của các vị tiền bối, mọi người uống trà trong sự an nhiên tâm hồn.</p>
+                <p>Chúng tôi sẽ hướng dẫn bạn pha trà theo phong cách trà đạo. Bạn sẽ tìm ra được cách pha trà hợp ý mình để có thể pha trà ở nhà hoặc bất cứ đâu. Thông qua các lễ thức trà được quy định từ đời xưa của các vị tiên bối, mọi người uống trà trong sự an nhiên tâm hồn.</p>
             </div>
         </a>
 
@@ -124,7 +134,7 @@ include __DIR__ . '/../../model/db.php';
             </div>
             <div class="card-content">
                 <h3>Thưởng Trà</h3>
-                <p>Trà ngon, rượu ngọt, bạn hiền. Mỗi người tuy mỗi sở thích nhưng chỉ cần thích trà, gặp được nhau lúc uống trà, sẽ là bạn tâm giao. Hãy đến với Lá Trà Ngon Tea House để được bàn luận về các loại trà ngon, tiếp cận văn hóa uống trà cổ điển mà hiện đại…</p>
+                <p>Trà ngon, rượu ngọt, bạn hiền. Mọi người tuy mỗi sở thích nhưng chỉ cần thích trà, gặp được nhau lúc uống trà, sẽ là bạn tâm giao. Hãy đến với Lá Trà Ngon Tea House để được bàn luận về các loại trà ngon, tiếp cận văn hóa uống trà cổ điển mà hiện đại…</p>
             </div>
         </a>
     </div>

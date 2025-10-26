@@ -1,7 +1,17 @@
 <?php
 // checkout.php
-include __DIR__ . '/../../model/db.php';
+// Include Database class
+require_once __DIR__ . '/../../model/database.php';
+
 session_start();
+
+// Lấy connection từ Database singleton
+try {
+    $db = Database::getInstance();
+    $conn = $db->getConnection();
+} catch (Exception $e) {
+    die("Lỗi kết nối database: " . $e->getMessage());
+}
 ?>
 <!DOCTYPE html>
 <html lang="vi">
@@ -10,7 +20,8 @@ session_start();
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Thanh Toán Đơn Hàng - Hương Trà</title>
     <link rel="stylesheet" href="../css/home.css">
-    <link rel="stylesheet" href="../css/checkout.css"> <link rel="stylesheet" href="../css/responsive.css">
+    <link rel="stylesheet" href="../css/checkout.css">
+    <link rel="stylesheet" href="../css/responsive.css">
     <link rel="stylesheet" href="../css/search.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600&display=swap" rel="stylesheet">
@@ -71,11 +82,11 @@ session_start();
                     </label>
                     <label class="payment-option">
                         <input type="radio" name="payment_method" value="transfer" id="radio-transfer">
-                        <i class="fas fa-qrcode"></i> Chuyển khoản Thủ công(Bảo Trì)
+                        <i class="fas fa-qrcode"></i> Chuyển khoản Thủ công (Bảo Trì)
                     </label>
                     <label class="payment-option">
                         <input type="radio" name="payment_method" value="momo">
-                        <i class="fas fa-wallet"></i> Ví điện tử (Momo/ZaloPay)(Bảo Trì)
+                        <i class="fas fa-wallet"></i> Ví điện tử (Momo/ZaloPay) (Bảo Trì)
                     </label>
                 </div>
 
@@ -85,13 +96,13 @@ session_start();
                         <p><strong>Ngân hàng:</strong> Vietcombank</p>
                         <p><strong>Số tài khoản:</strong> 0071000888888</p>
                         <p><strong>Chủ tài khoản:</strong> CÔNG TY CP HƯƠNG TRÀ</p>
-                        <p class="transfer-note"><strong>Nội dung:</strong> TTDH-[SỐ ĐƠN HÀNG]-SĐT bạn</p>
+                        <p class="transfer-note"><strong>Nội dung:</strong> TTDH-[Số ĐƠN HÀNG]-SĐT bạn</p>
                         <img src="../../image/qr_code_vcb.png" alt="Mã QR Vietcombank" class="qr-code">
                     </div>
 
                     <div class="form-group upload-receipt-group">
                         <label for="receipt_file"><i class="fas fa-upload"></i> Upload Biên lai (Tùy chọn)</label>
-                        <input type="file" id="receipt_file" name="receipt_file" accept="../../image/*,application/pdf">
+                        <input type="file" id="receipt_file" name="receipt_file" accept="image/*,application/pdf">
                         <small class="hint">Giúp shop xác nhận thanh toán nhanh hơn.</small>
                     </div>
                 </div>
@@ -132,5 +143,6 @@ session_start();
 
 <?php include 'footer.php'; ?>
 <script src="../js/cart.js"></script>
-<script src="../js/checkout.js"></script> </body>
+<script src="../js/checkout.js"></script>
+</body>
 </html>

@@ -1,38 +1,54 @@
 <?php
-// admin/controller/Invoice_Generator.php
-// Tự động tạo và lưu hóa đơn HTML
-
+// admin/html/Invoice_Generator.php
 require_once __DIR__ . '/../../model/database.php';
 
 class InvoiceGenerator
 {
-    private const INVOICE_DIR = __DIR__ . '/../invoices/';
-
     /**
-     * Tạo hóa đơn HTML cho đơn hàng
+     * Tạo và lưu hóa đơn HTML vào database
      */
     public static function generateInvoice(int $orderId): bool
     {
         try {
-            // Tạo thư mục nếu chưa có
-            if (!file_exists(self::INVOICE_DIR)) {
-                mkdir(self::INVOICE_DIR, 0755, true);
-            }
+            $db = Database::getInstance();
+            $conn = $db->getConnection();
 
-            // Lấy thông tin đơn hàng
+            // Lấy dữ liệu đơn hàng
             $orderData = self::getOrderData($orderId);
             if (!$orderData) {
+                error_log("Order #{$orderId} not found");
                 return false;
             }
 
             // Tạo HTML hóa đơn
-            $html = self::createInvoiceHTML($orderData);
+            $html = self::generateInvoiceHTML($orderData);
 
-            // Lưu file
-            $filename = self::INVOICE_DIR . "invoice_{$orderId}.html";
-            file_put_contents($filename, $html);
+            // Kiểm tra xem đã có hóa đơn chưa
+            $stmt = $conn->prepare("SELECT MaHoaDon FROM hoadon WHERE MaDonHang = ?");
+            $stmt->bind_param('i', $orderId);
+            $stmt->execute();
+            $result = $stmt->get_result();
 
-            return true;
+            if ($result->num_rows > 0) {
+                // Cập nhật hóa đơn cũ
+                $stmt = $conn->prepare("UPDATE hoadon SET NoiDungHTML = ?, NgayTao = NOW() WHERE MaDonHang = ?");
+                $stmt->bind_param('si', $html, $orderId);
+            } else {
+                // Tạo hóa đơn mới
+                $stmt = $conn->prepare("INSERT INTO hoadon (MaDonHang, NoiDungHTML, NgayTao) VALUES (?, ?, NOW())");
+                $stmt->bind_param('is', $orderId, $html);
+            }
+
+            $success = $stmt->execute();
+
+            if ($success) {
+                error_log("✅ Invoice generated successfully for order #{$orderId}");
+            } else {
+                error_log("❌ Failed to save invoice for order #{$orderId}");
+            }
+
+            return $success;
+
         } catch (Exception $e) {
             error_log("Error generating invoice: " . $e->getMessage());
             return false;
@@ -40,21 +56,40 @@ class InvoiceGenerator
     }
 
     /**
-     * Lấy đường dẫn file hóa đơn
-     */
-    public static function getInvoicePath(int $orderId): ?string
-    {
-        $filename = self::INVOICE_DIR . "invoice_{$orderId}.html";
-        return file_exists($filename) ? $filename : null;
-    }
-
-    /**
-     * Kiểm tra hóa đơn có tồn tại không
+     * Kiểm tra xem hóa đơn đã tồn tại chưa
      */
     public static function invoiceExists(int $orderId): bool
     {
-        $filename = self::INVOICE_DIR . "invoice_{$orderId}.html";
-        return file_exists($filename);
+        $db = Database::getInstance();
+        $conn = $db->getConnection();
+
+        $stmt = $conn->prepare("SELECT MaHoaDon FROM hoadon WHERE MaDonHang = ? LIMIT 1");
+        $stmt->bind_param('i', $orderId);
+        $stmt->execute();
+        $result = $stmt->get_result();
+
+        return $result->num_rows > 0;
+    }
+
+    /**
+     * Lấy HTML hóa đơn từ database
+     */
+    public static function getInvoiceHTML(int $orderId): ?string
+    {
+        $db = Database::getInstance();
+        $conn = $db->getConnection();
+
+        $stmt = $conn->prepare("SELECT NoiDungHTML FROM hoadon WHERE MaDonHang = ? LIMIT 1");
+        $stmt->bind_param('i', $orderId);
+        $stmt->execute();
+        $result = $stmt->get_result();
+
+        if ($result->num_rows > 0) {
+            $row = $result->fetch_assoc();
+            return $row['NoiDungHTML'];
+        }
+
+        return null;
     }
 
     /**
@@ -66,271 +101,437 @@ class InvoiceGenerator
         $conn = $db->getConnection();
 
         // Lấy thông tin đơn hàng
-        $sqlOrder = "
+        $stmt = $conn->prepare("
             SELECT 
                 dh.MaDonHang,
                 dh.NgayDat,
                 dh.TongTien,
                 dh.TrangThai,
-                nd.HoTen,
+                dh.MaBan,
+                nd.HoTen AS KhachHang,
                 nd.Email,
                 nd.SoDienThoai,
-                nd.Hang,
-                dh.MaBan,
+                nd.Hang AS HangTV,
                 tt.PhuongThuc
             FROM donhang dh
             JOIN nguoidung nd ON nd.MaNguoiDung = dh.MaNguoiDung
             LEFT JOIN thanhtoan tt ON tt.MaDonHang = dh.MaDonHang
             WHERE dh.MaDonHang = ?
-        ";
-        $stmt = $conn->prepare($sqlOrder);
+            LIMIT 1
+        ");
         $stmt->bind_param('i', $orderId);
         $stmt->execute();
-        $orderInfo = $stmt->get_result()->fetch_assoc();
-        $stmt->close();
+        $result = $stmt->get_result();
 
-        if (!$orderInfo) {
+        if ($result->num_rows === 0) {
             return null;
         }
 
+        $order = $result->fetch_assoc();
+
         // Lấy chi tiết sản phẩm
-        $sqlItems = "
-            SELECT sp.TenSanPham, ct.SoLuong,
-                   COALESCE(ct.DonGia, sp.Gia, 0) AS Gia,
-                   (ct.SoLuong * COALESCE(ct.DonGia, sp.Gia, 0)) AS Tong
+        $stmt = $conn->prepare("
+            SELECT 
+                sp.TenSanPham,
+                ct.SoLuong,
+                ct.DonGia,
+                (ct.SoLuong * ct.DonGia) AS ThanhTien
             FROM chitietdonhang ct
             JOIN sanpham sp ON sp.MaSanPham = ct.MaSanPham
             WHERE ct.MaDonHang = ?
-        ";
-        $stmt = $conn->prepare($sqlItems);
+        ");
         $stmt->bind_param('i', $orderId);
         $stmt->execute();
-        $rs = $stmt->get_result();
+        $itemsResult = $stmt->get_result();
 
         $items = [];
-        $subtotal = 0;
-        while ($r = $rs->fetch_assoc()) {
-            $itemTotal = (float)$r['Tong'];
-            $subtotal += $itemTotal;
-            $items[] = $r;
+        while ($row = $itemsResult->fetch_assoc()) {
+            $items[] = $row;
         }
-        $stmt->close();
 
-        // Tính toán
-        $rank = $orderInfo['Hang'] ?? 'Mới';
-        $totalAmount = (float)$orderInfo['TongTien'];
+        $order['items'] = $items;
 
-        $discountRates = [
-            'Mới' => 0.00,
-            'Bronze' => 0.02,
-            'Silver' => 0.05,
-            'Gold' => 0.10
-        ];
-        $discountRate = $discountRates[$rank] ?? 0.00;
+        // Tính toán các khoản phí
+        $subtotal = 0;
+        foreach ($items as $item) {
+            $subtotal += $item['ThanhTien'];
+        }
 
-        $calculatedSubtotal = $totalAmount / ((1 - $discountRate) * 1.08);
-        $discountAmount = $calculatedSubtotal * $discountRate;
-        $subtotalAfterDiscount = $calculatedSubtotal - $discountAmount;
-        $vat = $subtotalAfterDiscount * 0.08;
+        // Lấy tỷ lệ giảm giá theo hạng
+        $discountRate = self::getDiscountRate($order['HangTV'] ?? 'Mới');
+        $discountAmount = $subtotal * $discountRate;
+        $vat = $subtotal * 0.08;
+        $grandTotal = ($subtotal + $vat) - $discountAmount;
 
-        return [
-            'order' => $orderInfo,
-            'items' => $items,
-            'calculations' => [
-                'subtotal' => $calculatedSubtotal,
+        $order['calculations'] = [
+                'subtotal' => $subtotal,
                 'discount_rate' => $discountRate,
                 'discount_amount' => $discountAmount,
                 'vat' => $vat,
-                'grand_total' => $totalAmount,
-            ]
+                'grand_total' => $grandTotal
         ];
+
+        return $order;
     }
 
     /**
-     * Tạo HTML cho hóa đơn
+     * Lấy tỷ lệ giảm giá theo hạng thành viên
      */
-    private static function createInvoiceHTML(array $data): string
+    private static function getDiscountRate(string $rank): float
     {
-        $order = $data['order'];
-        $items = $data['items'];
+        $rates = [
+                'Mới' => 0.00,
+                'Bronze' => 0.02,
+                'Silver' => 0.05,
+                'Gold' => 0.10
+        ];
+        return $rates[$rank] ?? 0.00;
+    }
+
+    /**
+     * Tên phương thức thanh toán
+     */
+    private static function getPaymentMethodName(?string $method): string
+    {
+        $methods = [
+                'CASH' => 'Tiền mặt',
+                'CARD' => 'Thẻ ngân hàng',
+                'BANKING' => 'Chuyển khoản ngân hàng',
+                'EWALLET' => 'Ví điện tử'
+        ];
+        return $methods[$method ?? 'CASH'] ?? 'Tiền mặt';
+    }
+
+    /**
+     * Tạo HTML cho hóa đơn (in được, responsive)
+     */
+    private static function generateInvoiceHTML(array $data): string
+    {
+        $orderId = $data['MaDonHang'];
+        $ngayDat = date('d/m/Y H:i', strtotime($data['NgayDat']));
+        $khachHang = htmlspecialchars($data['KhachHang']);
+        $email = htmlspecialchars($data['Email'] ?? '');
+        $sdt = htmlspecialchars($data['SoDienThoai'] ?? 'N/A');
+        $hangTV = htmlspecialchars($data['HangTV'] ?? 'Mới');
+        $ban = $data['MaBan'] ? 'Bàn ' . $data['MaBan'] : '-';
+        $phuongThuc = self::getPaymentMethodName($data['PhuongThuc'] ?? null);
+
         $calc = $data['calculations'];
+        $items = $data['items'];
 
-        $fmt = new NumberFormatter('vi_VN', NumberFormatter::DECIMAL);
+        // Format số tiền
+        $fmt = function($num) {
+            return number_format($num, 0, ',', '.');
+        };
 
-        $paymentMethods = [
-            'CASH' => 'Tiền mặt',
-            'TRANSFER' => 'Chuyển khoản',
-            'CARD' => 'Thẻ ngân hàng',
-            'BANKING' => 'Chuyển khoản ngân hàng',
-            'EWALLET' => 'Ví điện tử',
-            'MOMO' => 'Ví MoMo',
-            'ZALOPAY' => 'ZaloPay'
-        ];
+        // Tạo danh sách sản phẩm
+        $itemsHTML = '';
+        $stt = 1;
+        foreach ($items as $item) {
+            $itemsHTML .= '<tr>
+                <td style="text-align: center;">' . $stt++ . '</td>
+                <td>' . htmlspecialchars($item['TenSanPham']) . '</td>
+                <td style="text-align: center;">' . $item['SoLuong'] . '</td>
+                <td style="text-align: right;">' . $fmt($item['DonGia']) . ' đ</td>
+                <td style="text-align: right; font-weight: bold;">' . $fmt($item['ThanhTien']) . ' đ</td>
+            </tr>';
+        }
 
-        $statusMap = [
-            'DRAFT' => 'Nháp',
-            'PLACED' => 'Chờ xác nhận',
-            'CONFIRMED' => 'Đang chuẩn bị',
-            'SHIPPING' => 'Đang giao',
-            'DONE' => 'Hoàn thành',
-            'CANCELLED' => 'Đã hủy',
-        ];
+        // Dòng giảm giá (nếu có)
+        // Dòng giảm giá (nếu có) – dùng đúng 2 cột như Tạm tính/VAT để căn thẳng hàng
+        $discountHTML = '';
+        if ($calc['discount_amount'] > 0) {
+            $discountPercent = ($calc['discount_rate'] * 100);
+            $discountHTML = '<tr class="summary-row discount-row">
+        <td style="text-align: right;">Giảm giá (Hạng ' . $hangTV . ' - ' . $discountPercent . '%):</td>
+        <td style="text-align: right;">- ' . $fmt($calc['discount_amount']) . ' đ</td>
+    </tr>';
+        }
 
-        $paymentMethod = $paymentMethods[$order['PhuongThuc'] ?? 'CASH'] ?? 'Tiền mặt';
-        $status = $statusMap[$order['TrangThai']] ?? $order['TrangThai'];
 
-        ob_start();
-        ?>
-        <!DOCTYPE html>
-        <html lang="vi">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Hóa Đơn #<?= $order['MaDonHang'] ?></title>
-            <style>
-                * { margin: 0; padding: 0; box-sizing: border-box; }
-                body { font-family: 'Arial', sans-serif; background: #f5f5f5; padding: 20px; }
-                .invoice-container { max-width: 900px; margin: 0 auto; background: white; padding: 40px; box-shadow: 0 0 20px rgba(0,0,0,0.1); }
-                .header { text-align: center; border-bottom: 3px solid #8f2c24; padding-bottom: 20px; margin-bottom: 30px; }
-                .header h1 { color: #8f2c24; font-size: 32px; margin-bottom: 10px; }
-                .header p { color: #666; font-size: 14px; }
-                .invoice-info { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 30px; }
-                .info-section h3 { color: #8f2c24; font-size: 16px; margin-bottom: 15px; border-bottom: 2px solid #8f2c24; padding-bottom: 8px; }
-                .info-row { display: flex; padding: 8px 0; border-bottom: 1px solid #eee; }
-                .info-label { font-weight: 600; color: #333; min-width: 120px; }
-                .info-value { color: #666; flex: 1; }
-                .items-table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
-                .items-table thead { background: #8f2c24; color: white; }
-                .items-table th { padding: 12px; text-align: left; font-weight: 600; }
-                .items-table td { padding: 12px; border-bottom: 1px solid #eee; }
-                .items-table tbody tr:hover { background: #f9f9f9; }
-                .text-right { text-align: right; }
-                .text-center { text-align: center; }
-                .totals { margin-left: auto; width: 400px; }
-                .total-row { display: flex; justify-content: space-between; padding: 10px 15px; border-bottom: 1px solid #eee; }
-                .total-row.discount { background: #fff3e0; color: #e65100; }
-                .total-row.grand { background: #8f2c24; color: white; font-size: 18px; font-weight: bold; border-radius: 6px; margin-top: 10px; }
-                .footer { text-align: center; margin-top: 40px; padding-top: 20px; border-top: 2px solid #eee; color: #666; font-size: 13px; }
-                .status-badge { display: inline-block; padding: 6px 15px; border-radius: 20px; font-size: 13px; font-weight: 600; }
-                .status-placed { background: #fff3cd; color: #856404; }
-                .status-confirmed { background: #cce5ff; color: #004085; }
-                .status-done { background: #d4edda; color: #155724; }
-                .status-cancelled { background: #f8d7da; color: #721c24; }
-                @media print {
-                    body { padding: 0; }
-                    .invoice-container { box-shadow: none; }
-                }
-            </style>
-        </head>
-        <body>
-        <div class="invoice-container">
-            <!-- Header -->
-            <div class="header">
-                <h1>🍽️ HƯỚNG TRÀ ADMIN</h1>
-                <p>Địa chỉ: 123 Đường ABC, Quận XYZ, TP.HCM</p>
-                <p>Điện thoại: 0123-456-789 | Email: admin@huongtra.com</p>
-            </div>
-
-            <!-- Invoice Info -->
-            <div class="invoice-info">
-                <div class="info-section">
-                    <h3>Thông Tin Đơn Hàng</h3>
-                    <div class="info-row">
-                        <span class="info-label">Mã đơn:</span>
-                        <span class="info-value">#<?= htmlspecialchars($order['MaDonHang']) ?></span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">Ngày đặt:</span>
-                        <span class="info-value"><?= date('d/m/Y H:i', strtotime($order['NgayDat'])) ?></span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">Bàn:</span>
-                        <span class="info-value"><?= $order['MaBan'] ? 'Bàn ' . $order['MaBan'] : 'Mang về' ?></span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">Trạng thái:</span>
-                        <span class="info-value"><span class="status-badge status-<?= strtolower($order['TrangThai']) ?>"><?= $status ?></span></span>
-                    </div>
-                </div>
-
-                <div class="info-section">
-                    <h3>Thông Tin Khách Hàng</h3>
-                    <div class="info-row">
-                        <span class="info-label">Họ tên:</span>
-                        <span class="info-value"><?= htmlspecialchars($order['HoTen']) ?></span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">Email:</span>
-                        <span class="info-value"><?= htmlspecialchars($order['Email']) ?></span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">Điện thoại:</span>
-                        <span class="info-value"><?= htmlspecialchars($order['SoDienThoai'] ?? 'N/A') ?></span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">Hạng TV:</span>
-                        <span class="info-value"><?= htmlspecialchars($order['Hang']) ?></span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">Thanh toán:</span>
-                        <span class="info-value"><?= $paymentMethod ?></span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Items Table -->
-            <table class="items-table">
-                <thead>
-                <tr>
-                    <th>Sản phẩm</th>
-                    <th class="text-center">Số lượng</th>
-                    <th class="text-right">Đơn giá</th>
-                    <th class="text-right">Thành tiền</th>
-                </tr>
-                </thead>
-                <tbody>
-                <?php foreach ($items as $item): ?>
-                    <tr>
-                        <td><?= htmlspecialchars($item['TenSanPham']) ?></td>
-                        <td class="text-center"><?= $item['SoLuong'] ?></td>
-                        <td class="text-right"><?= $fmt->format($item['Gia']) ?> đ</td>
-                        <td class="text-right"><?= $fmt->format($item['Tong']) ?> đ</td>
-                    </tr>
-                <?php endforeach; ?>
-                </tbody>
-            </table>
-
-            <!-- Totals -->
-            <div class="totals">
-                <div class="total-row">
-                    <span>Tạm tính:</span>
-                    <span><?= $fmt->format($calc['subtotal']) ?> đ</span>
-                </div>
-                <?php if ($calc['discount_amount'] > 0): ?>
-                    <div class="total-row discount">
-                        <span>Giảm giá (<?= ($calc['discount_rate'] * 100) ?>%):</span>
-                        <span>- <?= $fmt->format($calc['discount_amount']) ?> đ</span>
-                    </div>
-                <?php endif; ?>
-                <div class="total-row">
-                    <span>VAT (8%):</span>
-                    <span><?= $fmt->format($calc['vat']) ?> đ</span>
-                </div>
-                <div class="total-row grand">
-                    <span>TỔNG THANH TOÁN:</span>
-                    <span><?= $fmt->format($calc['grand_total']) ?> đ</span>
-                </div>
-            </div>
-
-            <!-- Footer -->
-            <div class="footer">
-                <p><strong>Cảm ơn quý khách đã sử dụng dịch vụ!</strong></p>
-                <p>Hóa đơn được tạo tự động bởi hệ thống - <?= date('d/m/Y H:i:s') ?></p>
+        $html = '<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hóa Đơn #' . $orderId . '</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: Arial, sans-serif; 
+            line-height: 1.6; 
+            color: #333;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+        .invoice-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            border-bottom: 3px solid #8f2c24;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            color: #8f2c24;
+            font-size: 28px;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+        .header .company-name {
+            font-size: 18px;
+            font-weight: bold;
+            color: #4d0702;
+            margin-bottom: 5px;
+        }
+        .header .company-info {
+            font-size: 12px;
+            color: #666;
+            line-height: 1.8;
+        }
+        .info-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .info-box {
+            background: #f9f9f9;
+            padding: 15px;
+            border-left: 4px solid #8f2c24;
+        }
+        .info-box h3 {
+            color: #8f2c24;
+            font-size: 14px;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+        .info-row {
+            display: flex;
+            padding: 5px 0;
+            font-size: 13px;
+        }
+        .info-label {
+            font-weight: bold;
+            width: 120px;
+            color: #555;
+        }
+        .info-value {
+            flex: 1;
+            color: #333;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        th {
+            background: #8f2c24;
+            color: white;
+            padding: 12px 8px;
+            text-align: left;
+            font-size: 13px;
+            text-transform: uppercase;
+        }
+        td {
+            padding: 10px 8px;
+            border-bottom: 1px solid #ddd;
+            font-size: 13px;
+        }
+        tr:hover td {
+            background: #f9f9f9;
+        }
+        .summary-table {
+            margin-top: 30px;
+            border: none;
+        }
+        .summary-table td {
+            border: none;
+            padding: 8px;
+        }
+        .summary-row {
+            font-size: 14px;
+        }
+        .total-row {
+            background: #8f2c24;
+            color: white;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .total-row td {
+            padding: 15px 8px;
+        }
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 2px solid #ddd;
+            text-align: center;
+            font-size: 12px;
+            color: #666;
+        }
+        .footer .signature {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 30px;
+        }
+        .signature div {
+            text-align: center;
+        }
+        .signature-line {
+            width: 200px;
+            border-top: 1px solid #333;
+            margin: 50px auto 10px;
+        }
+        .print-button {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #8f2c24;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        .print-button:hover {
+            background: #6d1f18;
+        }
+        @media print {
+            body { 
+                background: white; 
+                padding: 0; 
+            }
+            .invoice-container {
+                box-shadow: none;
+                padding: 0;
+            }
+            .print-button {
+                display: none;
+            }
+        }
+        @media (max-width: 600px) {
+            .info-section {
+                grid-template-columns: 1fr;
+            }
+            .invoice-container {
+                padding: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <button class="print-button" onclick="window.print()">🖨️ In Hóa Đơn</button>
+    
+    <div class="invoice-container">
+        <div class="header">
+            <h1>Hóa Đơn Bán Hàng</h1>
+            <div class="company-name">HƯƠNG TRÀ RESTAURANT</div>
+            <div class="company-info">
+                Địa chỉ: 88 Phan Xích Long, P.7, Q.Phú Nhuận, TPHCM<br>
+                Điện thoại: 1800 8287 | Email: contact@huongtra.com
             </div>
         </div>
-        </body>
-        </html>
-        <?php
-        return ob_get_clean();
+
+        <div class="info-section">
+            <div class="info-box">
+                <h3>Thông Tin Đơn Hàng</h3>
+                <div class="info-row">
+                    <span class="info-label">Mã đơn hàng:</span>
+                    <span class="info-value">#' . $orderId . '</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Ngày đặt:</span>
+                    <span class="info-value">' . $ngayDat . '</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Bàn:</span>
+                    <span class="info-value">' . $ban . '</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Thanh toán:</span>
+                    <span class="info-value">' . $phuongThuc . '</span>
+                </div>
+            </div>
+
+            <div class="info-box">
+                <h3>Thông Tin Khách Hàng</h3>
+                <div class="info-row">
+                    <span class="info-label">Họ tên:</span>
+                    <span class="info-value">' . $khachHang . '</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Email:</span>
+                    <span class="info-value">' . $email . '</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Số điện thoại:</span>
+                    <span class="info-value">' . $sdt . '</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Hạng thành viên:</span>
+                    <span class="info-value">' . $hangTV . '</span>
+                </div>
+            </div>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 50px; text-align: center;">STT</th>
+                    <th>Sản Phẩm</th>
+                    <th style="width: 80px; text-align: center;">SL</th>
+                    <th style="width: 120px; text-align: right;">Đơn Giá</th>
+                    <th style="width: 130px; text-align: right;">Thành Tiền</th>
+                </tr>
+            </thead>
+            <tbody>
+                ' . $itemsHTML . '
+            </tbody>
+        </table>
+
+        <table class="summary-table">
+            <tr class="summary-row">
+                <td style="text-align: right; width: 70%;">Tạm tính:</td>
+                <td style="text-align: right; font-weight: bold;">' . $fmt($calc['subtotal']) . ' đ</td>
+            </tr>
+            ' . $discountHTML . '
+            <tr class="summary-row">
+                <td style="text-align: right;">VAT (8%):</td>
+                <td style="text-align: right; font-weight: bold;">' . $fmt($calc['vat']) . ' đ</td>
+            </tr>
+            <tr class="total-row">
+                <td style="text-align: right;">TỔNG THANH TOÁN:</td>
+                <td style="text-align: right;">' . $fmt($calc['grand_total']) . ' đ</td>
+            </tr>
+        </table>
+
+        <div class="footer">
+            <p><strong>Cảm ơn quý khách đã sử dụng dịch vụ!</strong></p>
+            <p>Hóa đơn này được tạo tự động bởi hệ thống.</p>
+            
+            <div class="signature">
+                <div>
+                    <div class="signature-line"></div>
+                    <strong>Khách hàng</strong>
+                </div>
+                <div>
+                    <div class="signature-line"></div>
+                    <strong>Thu ngân</strong>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>';
+
+        return $html;
     }
 }

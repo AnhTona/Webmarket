@@ -1,7 +1,18 @@
 <?php
-include __DIR__ . '/../../model/db.php';
+// Include Database class
+require_once __DIR__ . '/../../model/database.php';
+
 session_start();
-$cart_items = [];
+
+// Lấy connection từ Database singleton
+try {
+    $db = Database::getInstance();
+    $conn = $db->getConnection();
+} catch (Exception $e) {
+    die("Lỗi kết nối database: " . $e->getMessage());
+}
+
+// Lấy giỏ hàng từ session
 $cart_items = isset($_SESSION['cart']) ? $_SESSION['cart'] : [];
 ?>
 <!DOCTYPE html>

@@ -1,5 +1,15 @@
 <?php
-include __DIR__ . '/../../model/db.php';
+// Include Database class
+require_once __DIR__ . '/../../model/database.php';
+
+// Lấy connection từ Database singleton (nếu cần dùng)
+try {
+    $db = Database::getInstance();
+    $conn = $db->getConnection();
+} catch (Exception $e) {
+    // Log error nhưng không dừng trang vì contact page không nhất thiết cần DB
+    error_log("Database connection warning: " . $e->getMessage());
+}
 ?>
 <!DOCTYPE html>
 <html lang="vi">
