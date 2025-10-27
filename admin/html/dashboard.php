@@ -1,17 +1,24 @@
 <?php
-session_start();
-if (!isset($_SESSION['user_id'])) {
-    header("Location: login.php");
-    exit();
+// Load config và require authentication
+require_once __DIR__ . '/config.php';
+requireAuth();
+
+// Load controller
+require_once __DIR__ . '/../controller/Dashboard_Controller.php';
+
+try {
+    $ctx = DashboardController::handle();
+    extract($ctx, EXTR_OVERWRITE);
+} catch (Exception $e) {
+    handleError($e->getMessage(), 'dashboard.php');
 }
 
-require_once __DIR__ . '/../controller/Dashboard_Controller.php';
-$ctx = DashboardController::handle();
-extract($ctx, EXTR_OVERWRITE);
+// Set page metadata
+$page_title = 'Trang Tổng Quan';
+$page_css = null; // Không cần CSS riêng
+$page_js = 'dashboard';
 
-// Không cần khai báo $notifications và $notification_count nữa
-// Vì template.php sẽ tự động load từ Notifications_Controller
-
+// Bắt đầu output buffering
 ob_start();
 ?>
 
@@ -114,7 +121,7 @@ ob_start();
                                 <span class="text-xs text-gray-500">
                                 <?= date('d/m/Y H:i', strtotime($o['NgayDat'])) ?> •
                                 <span class="<?= $o['TrangThai'] === 'DONE' ? 'text-green-600' : 'text-blue-600' ?>">
-                                    <?= $o['TrangThai'] ?>
+                                    <?= htmlspecialchars($o['TrangThai']) ?>
                                 </span>
                             </span>
                             </div>
@@ -138,8 +145,7 @@ ob_start();
         </div>
     </div>
 
-    <script src="../js/dashboard.js"></script>
-
 <?php
 $content = ob_get_clean();
 include __DIR__ . '/template.php';
+?>
