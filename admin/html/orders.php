@@ -114,6 +114,7 @@ ob_start();
     </div>
 
     <!-- CSS cho trang Orders -->
+    <link rel="stylesheet" href="../css/base.css">
     <link rel="stylesheet" href="../css/orders.css">
 
     <!-- JavaScript -->

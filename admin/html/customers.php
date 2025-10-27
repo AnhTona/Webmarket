@@ -11,6 +11,7 @@ ob_start();
 ?>
 
     <!-- CSS cho trang Customers -->
+    <link rel="stylesheet" href="../css/base.css">
     <link rel="stylesheet" href="../css/customers.css">
 
     <h1 class="text-3xl font-bold text-gray-800 mb-6">Quản Lý Khách Hàng</h1>

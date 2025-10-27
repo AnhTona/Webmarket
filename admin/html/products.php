@@ -209,7 +209,8 @@ ob_start();
     </div>
 
     <!-- CSS cho trang Products -->
-    <link rel="stylesheet" href="../../admin/css/products.css" />
+    <link rel="stylesheet" href="../css/base.css">
+    <link rel="stylesheet" href="../css/products.css" />
 
     <!-- JavaScript -->
     <script>
