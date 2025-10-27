@@ -2,20 +2,22 @@
 require_once __DIR__ . '/config.php';
 requireAuth();
 require_once __DIR__ . '/../controller/Customers_Controller.php';
-$ctx = CustomersController::handle();
-extract($ctx, EXTR_OVERWRITE);
 
-// Thiết lập tiêu đề trang
+try {
+    $ctx = CustomersController::handle();
+    extract($ctx, EXTR_OVERWRITE);
+} catch (Exception $e) {
+    handleError($e->getMessage(), 'customers.php');
+}
+
+// ✅ Set page metadata
 $page_title = 'Quản Lý Khách Hàng';
+$page_css = 'customers';
+$page_js = 'customers';
 
 // Bắt đầu output buffering
 ob_start();
 ?>
-
-    <!-- CSS cho trang Customers -->
-    <link rel="stylesheet" href="../css/base.css">
-    <link rel="stylesheet" href="../css/customers.css">
-
     <h1 class="text-3xl font-bold text-gray-800 mb-6">Quản Lý Khách Hàng</h1>
 
     <!-- Filter Bar -->
@@ -76,28 +78,36 @@ ob_start();
             </tr>
             </thead>
             <tbody>
-            <?php foreach ($customer_list as $customer): ?>
-                <tr data-id="<?php echo $customer['id']; ?>">
-                    <td><?php echo $customer['id']; ?></td>
-                    <td><?php echo htmlspecialchars($customer['name']); ?></td>
-                    <td><?php echo htmlspecialchars($customer['email']); ?></td>
-                    <td><?php echo htmlspecialchars($customer['phone']); ?></td>
-                    <td><?php echo htmlspecialchars($customer['address']); ?></td>
-                    <td class="rank-<?php echo strtolower($customer['rank']); ?>"><?php echo htmlspecialchars($customer['rank']); ?></td>
-                    <td><span class="status-badge status-<?php echo ($customer['status'] == 'Hoạt động' ? 'active' : 'inactive'); ?>"><?php echo htmlspecialchars($customer['status']); ?></span></td>
-                    <td><?php echo htmlspecialchars($customer['created_at']); ?></td>
-                    <td class="px-4 py-3">
-                        <div class="flex items-center gap-2 justify-start">
-                            <button class="btn-action edit-customer px-3 py-2 rounded bg-yellow-500 text-white hover:bg-yellow-600">Sửa thông tin
-                                <i class="fas fa-edit"></i>
-                            </button>
-                            <button class="btn-action delete-customer px-3 py-2 rounded bg-red-500 text-white hover:bg-red-600">Xóa khách hàng
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </div>
-                    </td>
-                </tr>
-            <?php endforeach; ?>
+            <?php if (!empty($customer_list)): ?>
+                <?php foreach ($customer_list as $customer): ?>
+                    <tr data-id="<?php echo htmlspecialchars($customer['id']); ?>">
+                        <td><?php echo htmlspecialchars($customer['id']); ?></td>
+                        <td><?php echo htmlspecialchars($customer['name']); ?></td>
+                        <td><?php echo htmlspecialchars($customer['email']); ?></td>
+                        <td><?php echo htmlspecialchars($customer['phone']); ?></td>
+                        <td><?php echo htmlspecialchars($customer['address']); ?></td>
+                        <td class="rank-<?php echo strtolower($customer['rank']); ?>"><?php echo htmlspecialchars($customer['rank']); ?></td>
+                        <td><span class="status-badge status-<?php echo ($customer['status'] == 'Hoạt động' ? 'active' : 'inactive'); ?>"><?php echo htmlspecialchars($customer['status']); ?></span></td>
+                        <td><?php echo htmlspecialchars($customer['created_at']); ?></td>
+                        <td class="px-4 py-3">
+                            <div class="flex items-center gap-2 justify-start">
+                                <button class="btn-action edit-customer px-3 py-2 rounded bg-yellow-500 text-white hover:bg-yellow-600"
+                                        data-id="<?php echo htmlspecialchars($customer['id']); ?>"
+                                        data-name="<?php echo htmlspecialchars($customer['name']); ?>">
+                                    Sửa <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="btn-action delete-customer px-3 py-2 rounded bg-red-500 text-white hover:bg-red-600"
+                                        data-id="<?php echo htmlspecialchars($customer['id']); ?>"
+                                        data-name="<?php echo htmlspecialchars($customer['name']); ?>">
+                                    Xóa <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+            <?php else: ?>
+                <tr><td colspan="9" class="text-center py-6 text-gray-500">Không có khách hàng nào.</td></tr>
+            <?php endif; ?>
             </tbody>
         </table>
         <div id="no-results-message" style="display: none; text-align: center; padding: 20px;">Không tìm thấy khách hàng nào phù hợp.</div>
@@ -148,7 +158,7 @@ ob_start();
                 <div class="form-section history-notes-section" id="history-notes-section">
                     <h3>Lịch Sử & Ghi Chú</h3>
                     <div class="form-group">
-                        <label for="purchase-history">Lịch Sử Mua Hàng (Mã ĐH, Ngày, Tổng tiền):</label>
+                        <label for="purchase-history">Lịch Sử Mua Hàng:</label>
                         <textarea id="purchase-history" rows="5" readonly></textarea>
                         <button type="button" class="btn btn-view-orders mt-2"><i class="fas fa-list-alt"></i> Xem Chi Tiết Đơn Hàng</button>
                     </div>
@@ -165,13 +175,9 @@ ob_start();
             </form>
         </div>
     </div>
-
-    <!-- JavaScript -->
     <script>
-        window.customersData = <?php echo json_encode($customer_list); ?> || [];
+        window.customersData = <?php echo json_encode($customer_list ?? [], JSON_UNESCAPED_UNICODE); ?>;
     </script>
-    <script src="../js/customers.js"></script>
-
 <?php
 // Lấy nội dung đã capture
 $content = ob_get_clean();

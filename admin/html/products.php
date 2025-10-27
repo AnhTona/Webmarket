@@ -2,11 +2,18 @@
 require_once __DIR__ . '/config.php';
 requireAuth();
 require_once __DIR__ . '/../controller/Product_Controller.php';
-$ctx = Product_Controller::handle();
-extract($ctx, EXTR_OVERWRITE);
 
-// Thiết lập tiêu đề trang
+try {
+    $ctx = Product_Controller::handle();
+    extract($ctx, EXTR_OVERWRITE);
+} catch (Exception $e) {
+    handleError($e->getMessage(), 'products.php');
+}
+
+// ✅ Set page metadata
 $page_title = 'Quản Lý Sản Phẩm';
+$page_css = 'products';
+$page_js = 'products';
 
 // Bắt đầu output buffering
 ob_start();
@@ -209,18 +216,10 @@ ob_start();
             </form>
         </div>
     </div>
-
-    <!-- CSS cho trang Products -->
-    <link rel="stylesheet" href="../css/base.css">
-    <link rel="stylesheet" href="../css/products.css" />
-
-    <!-- JavaScript -->
     <script>
         window.productsData = <?php echo json_encode($product_list_paginated ?? [], JSON_UNESCAPED_UNICODE); ?>;
         window.categoryOptions = <?php echo json_encode(array_column($category_options ?? [], 'TenDanhMuc'), JSON_UNESCAPED_UNICODE); ?>;
     </script>
-    <script src="../js/products.js"></script>
-
 <?php
 // Lấy nội dung đã capture
 $content = ob_get_clean();

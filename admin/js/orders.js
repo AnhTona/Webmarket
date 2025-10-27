@@ -1,13 +1,11 @@
-// admin/js/orders.js – Sửa lỗi modal không hiển thị
+/**
+ * orders.js - Optimized version
+ * Quản lý đơn hàng với AdminUtils và better UX
+ */
 
 class OrdersPage {
     constructor() {
-        // ===== Elements =====
-        this.sidebar = document.getElementById('sidebar');
-        this.menuToggle = document.getElementById('menu-toggle');
-        this.notificationBell = document.getElementById('notification-bell');
-        this.notificationDropdown = document.getElementById('notification-dropdown');
-
+        // Elements
         this.searchInput = document.getElementById('search-input');
         this.btnSearch = document.getElementById('btn-search');
         this.filterDate = document.getElementById('filter-date');
@@ -16,188 +14,89 @@ class OrdersPage {
         this.advancedFilters = document.getElementById('advanced-filters');
         this.filterDateFrom = document.getElementById('filter-date-from');
         this.filterDateTo = document.getElementById('filter-date-to');
-
         this.orderListTable = document.getElementById('order-list-table');
         this.noResultsMsg = document.getElementById('no-results-message');
-        this.modal = document.getElementById('order-detail-modal');
 
-        // ===== State =====
+        // Modal (sử dụng AdminModal)
+        this.modal = new AdminModal('order-detail-modal', 'Chi tiết đơn hàng');
+
+        // State
         this.state = {
             orders: Array.isArray(window.ordersData) ? window.ordersData : [],
         };
 
         this.fmt = new Intl.NumberFormat('vi-VN');
 
-        // init
-        this.initUI();
-        this.bindFilters();
-        this.bindTableActions();
-        this.renderRows(this.state.orders);
+        // Init
+        this.init();
     }
 
-    initUI() {
-        this.menuToggle?.addEventListener('click', () => {
-            this.sidebar?.classList.toggle('-translate-x-full');
-        });
+    init() {
+        this.bindEvents();
+        this.bindTableActions();
+        // PHP đã render rows, không cần renderRows() nữa
+    }
 
-        this.notificationBell?.addEventListener('click', () => {
-            this.notificationDropdown?.classList.toggle('active');
-        });
-
+    bindEvents() {
+        // Toggle advanced filters
         this.btnToggleAdvanced?.addEventListener('click', () => {
             this.advancedFilters?.classList.toggle('hidden');
         });
 
-        // Modal close buttons
-        document.querySelectorAll('.close-button').forEach(btn => {
-            btn.addEventListener('click', () => {
-                this.closeModal();
-            });
-        });
+        // Search with debounce
+        this.searchInput?.addEventListener('input',
+            AdminUtils.debounce(() => this.applyFilter(), 300)
+        );
 
-        // Click outside modal to close
-        window.addEventListener('click', (e) => {
-            if (e.target === this.modal) {
-                this.closeModal();
+        this.btnSearch?.addEventListener('click', () => this.applyFilter());
+
+        // Filters
+        this.filterDate?.addEventListener('change', () => this.applyFilter());
+        this.filterStatus?.addEventListener('change', () => this.applyFilter());
+        this.filterDateFrom?.addEventListener('change', () => this.applyFilter());
+        this.filterDateTo?.addEventListener('change', () => this.applyFilter());
+
+        // Enter key to search
+        this.searchInput?.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                this.applyFilter();
             }
         });
-    }
-
-    closeModal() {
-        if (this.modal) {
-            this.modal.classList.remove('active');
-            this.modal.style.display = 'none';
-        }
-    }
-
-    renderRows(rows) {
-        if (!this.orderListTable) return;
-        const tbody = this.orderListTable.tBodies[0] || this.orderListTable.createTBody();
-        tbody.innerHTML = '';
-        rows.forEach((o) => {
-            const tr = document.createElement('tr');
-            tr.dataset.id = o.MaDon;
-
-            // Xác định nút nào hiển thị dựa trên trạng thái
-            let actionButtons = '';
-            const status = (o.TrangThai || '').trim();
-
-            if (status === 'Chờ xác nhận') {
-                actionButtons = `
-                    <button class="btn-action view-detail" title="Xem chi tiết"><i class="fas fa-eye"></i> Xem</button>
-                    <button class="btn-action confirm-order" title="Xác nhận"><i class="fas fa-check"></i> Xác nhận</button>
-                    <button class="btn-action cancel-order" title="Hủy"><i class="fas fa-times"></i> Hủy</button>
-                `;
-            } else if (status === 'Đang chuẩn bị') {
-                actionButtons = `
-                    <button class="btn-action view-detail" title="Xem chi tiết"><i class="fas fa-eye"></i> Xem</button>
-                    <button class="btn-action complete-order" title="Hoàn thành"><i class="fas fa-check-double"></i> Hoàn thành</button>
-                    <button class="btn-action cancel-order" title="Hủy"><i class="fas fa-times"></i> Hủy</button>
-                `;
-            } else {
-                // Trạng thái Hoàn thành, Đã hủy, hoặc khác
-                actionButtons = `
-                    <button class="btn-action view-detail" title="Xem chi tiết"><i class="fas fa-eye"></i> Xem</button>
-                `;
-            }
-
-            tr.innerHTML = `
-                <td>${o.MaDon}</td>
-                <td>${o.KhachHang ?? '-'}</td>
-                <td>${o.Ban ?? '-'}</td>
-                <td>${o.NgayDat ?? '-'}</td>
-                <td>${this.fmt.format(+o.TongTien || 0)} VNĐ</td>
-                <td>${o.TrangThai ?? '-'}</td>
-                <td>${actionButtons}</td>
-            `;
-            tbody.appendChild(tr);
-        });
-        if (this.noResultsMsg) this.noResultsMsg.style.display = rows.length ? 'none' : 'block';
     }
 
     applyFilter() {
-        const kw = (this.searchInput?.value || '').toLowerCase().trim();
-        const ym = this.filterDate?.value || '';
-        const st = this.filterStatus?.value || 'All';
-        const dFrom = this.filterDateFrom?.value || '';
-        const dTo = this.filterDateTo?.value || '';
-
-        const okStatus = (txt) => st === 'All' || (txt || '').toLowerCase() === st.toLowerCase();
-
-        const filtered = this.state.orders.filter((o) => {
-            const hitKw =
-                !kw ||
-                (o.MaDon || '').toLowerCase().includes(kw) ||
-                (o.KhachHang || '').toLowerCase().includes(kw);
-            const hitYm = !ym || (o.NgayDat || '').slice(0, 7) === ym;
-            const hitSt = okStatus(o.TrangThai);
-            let hitFrom = true,
-                hitTo = true;
-            if (dFrom) hitFrom = (o.NgayDat || '').slice(0, 10) >= dFrom;
-            if (dTo) hitTo = (o.NgayDat || '').slice(0, 10) <= dTo;
-            return hitKw && hitYm && hitSt && hitFrom && hitTo;
-        });
-
-        this.renderRows(filtered);
-    }
-
-    bindFilters() {
-        const run = (e) => {
-            if (e?.preventDefault) e.preventDefault();
-            this.applyFilter();
+        const params = {
+            search: this.searchInput?.value?.trim() || null,
+            date: this.filterDate?.value || null,
+            status: this.filterStatus?.value !== 'All' ? this.filterStatus?.value : null,
+            date_from: this.filterDateFrom?.value || null,
+            date_to: this.filterDateTo?.value || null,
+            page: 1
         };
 
-        this.btnSearch?.addEventListener('click', run);
-        this.searchInput?.addEventListener('input', (e) => {
-            if ((e.target.value || '').length === 0) this.applyFilter();
-        });
-        this.searchInput?.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') run(e);
-        });
-        this.filterDate?.addEventListener('change', run);
-        this.filterStatus?.addEventListener('change', run);
-        this.filterDateFrom?.addEventListener('change', run);
-        this.filterDateTo?.addEventListener('change', run);
+        AdminUtils.updateURLParams(params);
+        window.location.reload();
     }
 
-    async api(action, id) {
-        const res = await fetch(
-            `orders.php?ajax=1&action=${encodeURIComponent(action)}&id=${encodeURIComponent(id)}`
-        );
-        return res.json();
-    }
-
-    async fetchOrderDetails(id) {
+    async viewOrderDetails(orderId) {
         try {
-            console.log('Fetching order details for ID:', id);
-            const res = await fetch(
-                `orders.php?ajax=1&action=view&id=${encodeURIComponent(id)}`
+            const result = await AdminUtils.ajax(
+                `orders.php?ajax=1&action=view&id=${encodeURIComponent(orderId)}`
             );
-            const data = await res.json();
-            console.log('Received data:', data);
-            return data.ok ? data : null;
-        } catch (e) {
-            console.error('Error fetching order details:', e);
-            return null;
+
+            if (!result.success || !result.data.ok) {
+                throw new Error(result.data?.message || 'Không thể tải chi tiết đơn hàng');
+            }
+
+            this.displayOrderDetails(result.data);
+
+        } catch (error) {
+            AdminUtils.showToast(error.message, 'error');
         }
     }
 
-    openDetailModal(data) {
-        console.log('Opening modal with data:', data);
-
-        if (!data) {
-            alert('Không thể tải chi tiết đơn hàng');
-            return;
-        }
-
-        const detailsDiv = document.getElementById('order-details');
-
-        if (!this.modal || !detailsDiv) {
-            alert('Modal không tồn tại');
-            console.error('Modal or details div not found');
-            return;
-        }
-
+    displayOrderDetails(data) {
         const order = data.order || {};
         const items = data.items || [];
         const calc = data.calculations || {};
@@ -206,14 +105,14 @@ class OrdersPage {
             <div style="margin-bottom: 20px; padding: 15px; background: #f9f9f9; border-radius: 8px;">
                 <h3 style="margin: 0 0 15px 0; color: #333; border-bottom: 2px solid #8f2c24; padding-bottom: 8px;">Thông tin đơn hàng</h3>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                    <div><strong>Mã đơn:</strong> #${order.MaDon || '-'}</div>
-                    <div><strong>Khách hàng:</strong> ${order.KhachHang || '-'}</div>
-                    <div><strong>Email:</strong> ${order.Email || '-'}</div>
-                    <div><strong>Hạng TV:</strong> <span style="padding: 2px 8px; border-radius: 12px; background: #fff3e0; color: #e65100;">${order.HangTV || 'Mới'}</span></div>
-                    <div><strong>Bàn:</strong> ${order.Ban || '-'}</div>
-                    <div><strong>Ngày đặt:</strong> ${order.NgayDat || '-'}</div>
+                    <div><strong>Mã đơn:</strong> #${AdminUtils.escapeHTML(order.MaDon || '-')}</div>
+                    <div><strong>Khách hàng:</strong> ${AdminUtils.escapeHTML(order.KhachHang || '-')}</div>
+                    <div><strong>Email:</strong> ${AdminUtils.escapeHTML(order.Email || '-')}</div>
+                    <div><strong>Hạng TV:</strong> <span style="padding: 2px 8px; border-radius: 12px; background: #fff3e0; color: #e65100;">${AdminUtils.escapeHTML(order.HangTV || 'Mới')}</span></div>
+                    <div><strong>Bàn:</strong> ${AdminUtils.escapeHTML(order.Ban || '-')}</div>
+                    <div><strong>Ngày đặt:</strong> ${AdminUtils.escapeHTML(order.NgayDat || '-')}</div>
                     <div><strong>Phương thức:</strong> ${this.getPaymentMethodName(order.PhuongThuc)}</div>
-                    <div><strong>Trạng thái:</strong> ${order.TrangThai || '-'}</div>
+                    <div><strong>Trạng thái:</strong> ${AdminUtils.escapeHTML(order.TrangThai || '-')}</div>
                 </div>
             </div>
 
@@ -234,10 +133,10 @@ class OrdersPage {
         items.forEach(item => {
             html += `
                 <tr style="border-bottom: 1px solid #ddd;">
-                    <td style="padding: 10px;">${item.TenSanPham || '-'}</td>
+                    <td style="padding: 10px;">${AdminUtils.escapeHTML(item.TenSanPham || '-')}</td>
                     <td style="padding: 10px; text-align: center;">${item.SoLuong || 0}</td>
-                    <td style="padding: 10px; text-align: right;">${this.fmt.format(+item.Gia || 0)} đ</td>
-                    <td style="padding: 10px; text-align: right;">${this.fmt.format(+item.Tong || 0)} đ</td>
+                    <td style="padding: 10px; text-align: right;">${AdminUtils.formatCurrency(+item.Gia || 0)}</td>
+                    <td style="padding: 10px; text-align: right;">${AdminUtils.formatCurrency(+item.Tong || 0)}</td>
                 </tr>
             `;
         });
@@ -252,7 +151,7 @@ class OrdersPage {
                 
                 <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #ddd;">
                     <span>Tạm tính:</span>
-                    <span style="font-weight: 600;">${this.fmt.format(+calc.subtotal || 0)} đ</span>
+                    <span style="font-weight: 600;">${AdminUtils.formatCurrency(+calc.subtotal || 0)}</span>
                 </div>
         `;
 
@@ -260,8 +159,8 @@ class OrdersPage {
             const discountPercent = ((calc.discount_rate || 0) * 100).toFixed(0);
             html += `
                 <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #ddd; background: #fff3e0; margin: 5px -15px; padding-left: 15px; padding-right: 15px;">
-                    <span style="color: #e65100;">Giảm giá (Hạng ${order.HangTV || 'Mới'} - ${discountPercent}%):</span>
-                    <span style="font-weight: 600; color: #d84315;">- ${this.fmt.format(+calc.discount_amount || 0)} đ</span>
+                    <span style="color: #e65100;">Giảm giá (Hạng ${AdminUtils.escapeHTML(order.HangTV || 'Mới')} - ${discountPercent}%):</span>
+                    <span style="font-weight: 600; color: #d84315;">- ${AdminUtils.formatCurrency(+calc.discount_amount || 0)}</span>
                 </div>
             `;
         }
@@ -269,21 +168,22 @@ class OrdersPage {
         html += `
                 <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #ddd;">
                     <span>VAT (8%):</span>
-                    <span style="font-weight: 600;">${this.fmt.format(+calc.vat || 0)} đ</span>
+                    <span style="font-weight: 600;">${AdminUtils.formatCurrency(+calc.vat || 0)}</span>
                 </div>
 
-                <div style="display: flex; justify-content: space-between; padding: 15px 0; margin-top: 10px; background: #8f2c24; color: white; margin: 10px -15px 0; padding-left: 15px; padding-right: 15px; border-radius: 6px;">
+                <div style="display: flex; justify-content: space-between; padding: 15px 0; margin-top: 10px; background: #8f2c24; color: white; margin: 10px -15px 0; padding-left: 15px; padding-right: 15px; border-radius: 8px;">
                     <span style="font-size: 18px; font-weight: 700;">TỔNG THANH TOÁN:</span>
-                    <span style="font-size: 18px; font-weight: 700;">${this.fmt.format(+calc.grand_total || 0)} đ</span>
+                    <span style="font-size: 18px; font-weight: 700;">${AdminUtils.formatCurrency(+calc.grand_total || 0)}</span>
                 </div>
             </div>
         `;
 
-        detailsDiv.innerHTML = html;
-        this.modal.style.display = 'flex';
-        this.modal.classList.add('active');
+        const detailsDiv = document.getElementById('order-details');
+        if (detailsDiv) {
+            AdminUtils.setInnerHTML(detailsDiv, html);
+        }
 
-        console.log('Modal opened successfully');
+        this.modal.open();
     }
 
     getPaymentMethodName(method) {
@@ -303,53 +203,92 @@ class OrdersPage {
         this.orderListTable?.addEventListener('click', async (e) => {
             const btn = e.target.closest('button');
             if (!btn) return;
+
             const tr = btn.closest('tr');
             const id = tr?.dataset?.id;
             if (!id) return;
 
-            console.log('Button clicked:', btn.className, 'ID:', id);
-
-            if (btn.classList.contains('view-detail') || btn.classList.contains('view-order') || btn.classList.contains('btn-view')) {
+            // View order details
+            if (btn.classList.contains('view-detail') || btn.classList.contains('view-order')) {
                 const base = location.pathname.replace(/\/[^\/]*$/, '/');
                 window.open(base + 'invoice.php?id=' + encodeURIComponent(id), '_blank');
                 return;
             }
 
+            // Confirm order
             if (btn.classList.contains('confirm-order')) {
-                if (!confirm('Xác nhận đơn hàng này?')) return;
-                const j = await this.api('confirm', id);
-                if (j.ok) {
-                    alert(j.message || 'Đã xác nhận');
-                    // Tự động reload trang
-                    location.reload();
-                } else {
-                    alert(j.message || 'Lỗi khi xác nhận đơn hàng');
+                const confirmed = await AdminUtils.confirm(
+                    'Xác nhận đơn hàng này?',
+                    'Xác nhận đơn hàng'
+                );
+                if (!confirmed) return;
+
+                try {
+                    const result = await AdminUtils.ajax(
+                        `orders.php?ajax=1&action=confirm&id=${encodeURIComponent(id)}`
+                    );
+
+                    if (!result.success || !result.data.ok) {
+                        throw new Error(result.data?.message || 'Xác nhận thất bại');
+                    }
+
+                    AdminUtils.showToast('Đã xác nhận đơn hàng!', 'success');
+                    setTimeout(() => location.reload(), 1000);
+
+                } catch (error) {
+                    AdminUtils.showToast(error.message, 'error');
                 }
                 return;
             }
 
+            // Complete order
             if (btn.classList.contains('complete-order')) {
-                if (!confirm('Đánh dấu Hoàn thành đơn này?')) return;
-                const j = await this.api('complete', id);
-                if (j.ok) {
-                    alert(j.message || 'Đã hoàn thành');
-                    // Tự động reload trang
-                    location.reload();
-                } else {
-                    alert(j.message || 'Lỗi khi hoàn thành đơn hàng');
+                const confirmed = await AdminUtils.confirm(
+                    'Đánh dấu hoàn thành đơn hàng này?',
+                    'Hoàn thành đơn hàng'
+                );
+                if (!confirmed) return;
+
+                try {
+                    const result = await AdminUtils.ajax(
+                        `orders.php?ajax=1&action=complete&id=${encodeURIComponent(id)}`
+                    );
+
+                    if (!result.success || !result.data.ok) {
+                        throw new Error(result.data?.message || 'Hoàn thành thất bại');
+                    }
+
+                    AdminUtils.showToast('Đã hoàn thành đơn hàng!', 'success');
+                    setTimeout(() => location.reload(), 1000);
+
+                } catch (error) {
+                    AdminUtils.showToast(error.message, 'error');
                 }
                 return;
             }
 
+            // Cancel order
             if (btn.classList.contains('cancel-order')) {
-                if (!confirm('Hủy đơn hàng này?')) return;
-                const j = await this.api('cancel', id);
-                if (j.ok) {
-                    alert(j.message || 'Đã hủy');
-                    // Tự động reload trang
-                    location.reload();
-                } else {
-                    alert(j.message || 'Lỗi khi hủy đơn hàng');
+                const confirmed = await AdminUtils.confirm(
+                    'Hủy đơn hàng này?\nHành động này không thể hoàn tác.',
+                    'Xác nhận hủy đơn'
+                );
+                if (!confirmed) return;
+
+                try {
+                    const result = await AdminUtils.ajax(
+                        `orders.php?ajax=1&action=cancel&id=${encodeURIComponent(id)}`
+                    );
+
+                    if (!result.success || !result.data.ok) {
+                        throw new Error(result.data?.message || 'Hủy đơn thất bại');
+                    }
+
+                    AdminUtils.showToast('Đã hủy đơn hàng!', 'success');
+                    setTimeout(() => location.reload(), 1000);
+
+                } catch (error) {
+                    AdminUtils.showToast(error.message, 'error');
                 }
                 return;
             }
@@ -357,7 +296,7 @@ class OrdersPage {
     }
 }
 
+// Initialize
 document.addEventListener('DOMContentLoaded', () => {
-    window.__ordersPage = new OrdersPage();
-    console.log('OrdersPage initialized');
+    window.ordersPage = new OrdersPage();
 });

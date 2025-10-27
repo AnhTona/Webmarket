@@ -1,12 +1,23 @@
 <?php
+// ✅ THÊM AUTHENTICATION
+require_once __DIR__ . '/config.php';
+requireAuth();
+
 require_once __DIR__ . '/../controller/Orders_Controller.php';
-$ctx = OrdersController::handle();
-extract($ctx, EXTR_OVERWRITE);
 
-// Thiết lập tiêu đề trang
+try {
+    $ctx = OrdersController::handle();
+    extract($ctx, EXTR_OVERWRITE);
+} catch (Exception $e) {
+    handleError($e->getMessage(), 'orders.php');
+}
+
+// ✅ Set page metadata
 $page_title = 'Quản Lý Đơn Hàng';
+$page_css = 'orders';
+$page_js = 'orders';
 
-// Bắt đầu output buffering để capture nội dung
+// Bắt đầu output buffering
 ob_start();
 ?>
 
@@ -62,7 +73,7 @@ ob_start();
             <?php foreach ($order_list as $order):
                 $status = trim($order['TrangThai']);
                 ?>
-                <tr data-id="<?php echo $order['MaDon']; ?>">
+                <tr data-id="<?php echo htmlspecialchars($order['MaDon']); ?>">
                     <td><?php echo htmlspecialchars($order['MaDon']); ?></td>
                     <td><?php echo htmlspecialchars($order['KhachHang']); ?></td>
                     <td><?php echo htmlspecialchars($order['Ban']); ?></td>
@@ -70,7 +81,9 @@ ob_start();
                     <td><?php echo number_format($order['TongTien'], 0, ',', '.') . 'đ'; ?></td>
                     <td><span class="status-badge status-<?php echo strtolower(str_replace(' ', '-', $status)); ?>"><?php echo htmlspecialchars($status); ?></span></td>
                     <td>
-                        <button class="btn-action view-order" title="Xem chi tiết"><i class="fas fa-eye"></i data-id="<?= (int)$row['MaDon'] ?>"> Xem</button>
+                        <button class="btn-action view-order" data-id="<?= htmlspecialchars($order['MaDon']) ?>" title="Xem chi tiết">
+                            <i class="fas fa-eye"></i> Xem
+                        </button>
                         <?php if ($status === 'Chờ xác nhận'): ?>
                             <button class="btn-action confirm-order" title="Xác nhận"><i class="fas fa-check"></i> Xác nhận</button>
                             <button class="btn-action cancel-order" title="Hủy"><i class="fas fa-times"></i> Hủy</button>
@@ -112,17 +125,9 @@ ob_start();
             </div>
         </div>
     </div>
-
-    <!-- CSS cho trang Orders -->
-    <link rel="stylesheet" href="../css/base.css">
-    <link rel="stylesheet" href="../css/orders.css">
-
-    <!-- JavaScript -->
     <script>
         window.ordersData = <?php echo json_encode($order_list ?? [], JSON_UNESCAPED_UNICODE); ?>;
     </script>
-    <script src="../js/orders.js"></script>
-
 <?php
 // Lấy nội dung đã capture
 $content = ob_get_clean();
