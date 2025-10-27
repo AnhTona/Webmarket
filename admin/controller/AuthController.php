@@ -102,6 +102,7 @@ final class AuthController extends BaseController
             $_SESSION['user_id'] = (int)$user['MaNguoiDung'];
             $_SESSION['username'] = $user['Username'];
             $_SESSION['role'] = $role;
+            $_SESSION['user_role'] = $role;
             $_SESSION['last_activity'] = time();
 
             self::log('successful_login', ['username' => $username]);

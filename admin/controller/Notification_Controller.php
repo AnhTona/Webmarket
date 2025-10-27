@@ -19,7 +19,7 @@ final class NotificationsController extends BaseController
     /**
      * Notification types and their properties
      */
-    private const array NOTIFICATION_TYPES = [
+    private const NOTIFICATION_TYPES = [
         'new_order' => [
             'icon' => 'fa-shopping-cart',
             'color' => 'bg-blue-500',
