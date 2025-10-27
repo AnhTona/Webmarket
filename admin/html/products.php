@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/config.php';
+requireAuth();
 require_once __DIR__ . '/../controller/Product_Controller.php';
 $ctx = Product_Controller::handle();
 extract($ctx, EXTR_OVERWRITE);

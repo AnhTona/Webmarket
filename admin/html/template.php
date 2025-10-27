@@ -228,18 +228,5 @@ $success_message = getFlashMessage('success');
 <?php if (isset($page_js)): ?>
     <script src="../js/<?php echo htmlspecialchars($page_js); ?>.js"></script>
 <?php endif; ?>
-
-<!-- Auto hide flash messages -->
-<script>
-    setTimeout(() => {
-        const flashMessages = document.querySelectorAll('[id^="flash-"]');
-        flashMessages.forEach(msg => {
-            msg.style.transition = 'opacity 0.5s';
-            msg.style.opacity = '0';
-            setTimeout(() => msg.remove(), 500);
-        });
-    }, 5000);
-</script>
-
 </body>
 </html>
