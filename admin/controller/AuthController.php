@@ -1,96 +1,153 @@
 <?php
-// admin/controller/Auth_Controller.php
-session_start();
-require_once __DIR__ . '/../../model/database.php'; // File Database OOP mới
+declare(strict_types=1);
 
-class AuthController {
-    public static function handle(): array {
-        // Logout
+/**
+ * AuthController.php
+ * Authentication controller with PHP 8.4 features
+ *
+ * @package Admin\Controller
+ */
+
+require_once __DIR__ . '/../../model/database.php';
+require_once __DIR__ . '/BaseController.php';
+
+final class AuthController extends BaseController
+{
+    /**
+     * Handle authentication requests
+     *
+     * @return array<string, mixed>
+     */
+    public static function handle(): array
+    {
+        // Logout action
         if (isset($_GET['action']) && $_GET['action'] === 'logout') {
             self::logout();
         }
 
-        // Đã đăng nhập thì vào dashboard
+        // Already logged in
         if (isset($_SESSION['user_id'])) {
             self::redirect('/Webmarket/admin/html/dashboard.php');
         }
 
-        $error = null;
+        // Handle login POST
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            [$ok, $msg] = self::login($_POST['username'] ?? '', $_POST['password'] ?? '');
-            if ($ok) {
+            [$success, $message] = self::login(
+                username: $_POST['username'] ?? '',
+                password: $_POST['password'] ?? ''
+            );
+
+            if ($success) {
                 self::redirect('/Webmarket/admin/html/dashboard.php');
-            } else {
-                $error = $msg ?: 'Đăng nhập thất bại';
             }
+
+            return ['error' => $message ?? 'Đăng nhập thất bại'];
         }
-        return ['error' => $error];
+
+        return ['error' => null];
     }
 
-    private static function login(string $username, string $password): array {
-        // Sử dụng Database OOP
-        $db = Database::getInstance();
-        $conn = $db->getConnection();
+    /**
+     * Login user
+     *
+     * @return array{bool, ?string}
+     */
+    private static function login(
+        string $username,
+        string $password
+    ): array {
+        $username = trim($username);
 
-        if (!$conn) return [false, 'Không kết nối được DB'];
-
-        $u = trim($username);
-        $p = (string)$password;
-        if ($u === '' || $p === '') return [false, 'Vui lòng nhập đủ tên đăng nhập và mật khẩu'];
-
-        $sql = "SELECT MaNguoiDung, Username, MatKhau, VaiTro, TrangThai
-                FROM nguoidung
-                WHERE Username = ?
-                LIMIT 1";
-
-        if (!($stmt = $conn->prepare($sql))) {
-            return [false, 'Lỗi chuẩn bị truy vấn'];
-        }
-        $stmt->bind_param('s', $u);
-        $stmt->execute();
-        $res = $stmt->get_result();
-        $row = $res->fetch_assoc();
-        $stmt->close();
-
-        if (!$row) return [false, 'Sai tên đăng nhập hoặc mật khẩu'];
-
-        // Khóa tài khoản?
-        if ((int)$row['TrangThai'] !== 1) {
-            return [false, 'Tài khoản đã bị khóa'];
+        if ($username === '' || $password === '') {
+            return [false, 'Vui lòng nhập đủ tên đăng nhập và mật khẩu'];
         }
 
-        // Chỉ cho ADMIN/STAFF vào admin
-        $role = strtoupper((string)$row['VaiTro']);
-        if ($role !== 'ADMIN' && $role !== 'STAFF') {
-            return [false, 'Tài khoản không có quyền truy cập trang quản trị'];
+        try {
+            $user = self::fetchRow(
+                sql: "SELECT MaNguoiDung, Username, MatKhau, VaiTro, TrangThai
+                      FROM nguoidung
+                      WHERE Username = ?
+                      LIMIT 1",
+                params: [$username]
+            );
+
+            if (!$user) {
+                return [false, 'Sai tên đăng nhập hoặc mật khẩu'];
+            }
+
+            // Check account status
+            if ((int)$user['TrangThai'] !== 1) {
+                return [false, 'Tài khoản đã bị khóa'];
+            }
+
+            // Check role
+            $role = strtoupper($user['VaiTro']);
+            if (!in_array($role, ['ADMIN', 'STAFF'], true)) {
+                return [false, 'Tài khoản không có quyền truy cập'];
+            }
+
+            // Verify password
+            $hash = $user['MatKhau'];
+            $validPassword = password_verify($password, $hash) ||
+                hash_equals($hash, $password); // Backward compat
+
+            if (!$validPassword) {
+                self::log('failed_login', ['username' => $username]);
+                return [false, 'Sai tên đăng nhập hoặc mật khẩu'];
+            }
+
+            // Create session
+            session_regenerate_id(deleteOldSession: true);
+
+            $_SESSION['user_id'] = (int)$user['MaNguoiDung'];
+            $_SESSION['username'] = $user['Username'];
+            $_SESSION['role'] = $role;
+            $_SESSION['last_activity'] = time();
+
+            self::log('successful_login', ['username' => $username]);
+
+            return [true, null];
+
+        } catch (Throwable $e) {
+            error_log("Login error: " . $e->getMessage());
+            return [false, 'Lỗi hệ thống. Vui lòng thử lại.'];
         }
-
-        // Hỗ trợ cả hash và (tạm thời) plain text để bạn chuyển dần
-        $hash = (string)$row['MatKhau'];
-        $valid = password_verify($p, $hash) || hash_equals($hash, $p);
-        if (!$valid) return [false, 'Sai tên đăng nhập hoặc mật khẩu'];
-
-        // OK -> tạo session
-        session_regenerate_id(true);
-        $_SESSION['user_id']  = (int)$row['MaNguoiDung'];
-        $_SESSION['username'] = $row['Username'];
-        $_SESSION['role']     = $role;
-
-        return [true, null];
     }
 
-    private static function logout(): void {
+    /**
+     * Logout user
+     */
+    private static function logout(): never
+    {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+
+        $username = $_SESSION['username'] ?? 'unknown';
+
         $_SESSION = [];
-        if (ini_get('session.use_cookies')) {
-            $params = session_get_cookie_params();
-            setcookie(session_name(), '', time()-42000, $params['path'], $params['domain'], $params['secure'], $params['httponly']);
+
+        if (isset($_COOKIE[session_name()])) {
+            setcookie(
+                name: session_name(),
+                value: '',
+                expires_or_options: time() - 3600,
+                path: '/'
+            );
         }
+
         session_destroy();
+
+        self::log('logout', ['username' => $username]);
         self::redirect('/Webmarket/admin/html/login.php');
     }
 
-    private static function redirect(string $path): void {
-        header("Location: http://localhost{$path}");
-        exit();
+    /**
+     * Redirect helper
+     */
+    private static function redirect(string $url): never
+    {
+        header("Location: {$url}");
+        exit;
     }
 }
