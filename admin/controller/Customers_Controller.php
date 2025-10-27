@@ -19,14 +19,14 @@ final class CustomersController extends BaseController
     /**
      * Membership rank thresholds and time window
      */
-    private const int RANK_WINDOW_DAYS = 365; // 12 months
-    private const int RANK_SILVER_MIN = 2_000_000;
-    private const int RANK_GOLD_MIN = 5_000_000;
+    private const RANK_WINDOW_DAYS = 365; // 12 months
+    private const RANK_SILVER_MIN = 2_000_000;
+    private const RANK_GOLD_MIN = 5_000_000;
 
     /**
      * Order statuses counted for revenue
      */
-    private const array PAID_STATUSES = ['CONFIRMED', 'SHIPPING', 'DONE'];
+    private const PAID_STATUSES = ['CONFIRMED', 'SHIPPING', 'DONE'];
 
     /**
      * Handle customer requests

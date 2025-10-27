@@ -94,7 +94,7 @@ class AdminTemplate {
 class NotificationManager {
     constructor(config = {}) {
         this.refreshInterval = config.refreshInterval || 30000; // 30s
-        this.apiEndpoint = config.apiEndpoint || '../html/get_notifications.php';
+        this.apiEndpoint = config.apiEndpoint || '../controller/get_notifications.php';
         this.maxItems = config.maxItems || 10;
 
         this.lastCount = 0;

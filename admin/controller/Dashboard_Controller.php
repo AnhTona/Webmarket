@@ -136,19 +136,19 @@ final class DashboardController extends BaseController
     {
         $data = self::fetchAll(
             "SELECT 
-                DATE(tt.NgayThanhToan) as date,
-                COALESCE(SUM(tt.SoTien), 0) as revenue
-             FROM thanhtoan tt
-             WHERE tt.NgayThanhToan >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
-             GROUP BY DATE(tt.NgayThanhToan)
-             ORDER BY date ASC"
+            DATE(tt.NgayThanhToan) as date,
+            COALESCE(SUM(tt.SoTien), 0) as revenue
+         FROM thanhtoan tt
+         WHERE tt.NgayThanhToan >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+         GROUP BY DATE(tt.NgayThanhToan)
+         ORDER BY date ASC"
         );
 
         return array_map(
             fn(array $row): array => [
                 'date' => $row['date'],
                 'revenue' => (float)$row['revenue'],
-                'day_of_week' => date('D', strtotime($row['date'])),
+                'day_of_week' => self::getDayOfWeekVN($row['date']), // ← SỬA ĐÂY
             ],
             $data
         );
@@ -159,30 +159,55 @@ final class DashboardController extends BaseController
      *
      * @return array<int, array<string, mixed>>
      */
+    /**
+     * Get revenue bar chart with full 7 days (including days with no revenue)
+     */
     private static function getRevenueBarChart(): array
     {
-        $series = self::getRevenueSeries();
+        // Get all revenue data from last 7 days
+        $data = self::fetchAll(
+            "SELECT 
+            DATE(tt.NgayThanhToan) as date,
+            COALESCE(SUM(tt.SoTien), 0) as revenue
+         FROM thanhtoan tt
+         WHERE tt.NgayThanhToan >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+         GROUP BY DATE(tt.NgayThanhToan)
+         ORDER BY date ASC"
+        );
 
-        // Get last 7 days
-        $last7 = array_slice($series, -7);
-
-        if (empty($last7)) {
-            return [];
+        // Create array indexed by date
+        $revenueByDate = [];
+        foreach ($data as $row) {
+            $revenueByDate[$row['date']] = (float)$row['revenue'];
         }
 
-        // Find max for percentage calculation
-        $maxRevenue = max(array_column($last7, 'revenue'));
-        $maxRevenue = $maxRevenue > 0 ? $maxRevenue : 1; // Prevent division by zero
+        // Generate full 7 days
+        $bars = [];
+        for ($i = 6; $i >= 0; $i--) {
+            $date = date('Y-m-d', strtotime("-{$i} days"));
+            $revenue = $revenueByDate[$date] ?? 0;
+
+            $bars[] = [
+                'date' => $date,
+                'dow' => self::getDayOfWeekVN($date),
+                'revenue' => $revenue,
+            ];
+        }
+
+        // Calculate percentages
+        $revenues = array_column($bars, 'revenue');
+        $maxRevenue = max($revenues);
+        $maxRevenue = $maxRevenue > 0 ? $maxRevenue : 1;
 
         return array_map(
             fn(array $day): array => [
                 'date' => $day['date'],
-                'dow' => $day['day_of_week'],
+                'dow' => $day['dow'],
                 'revenue' => $day['revenue'],
                 'pct' => round(($day['revenue'] / $maxRevenue) * 100, 2),
                 'title' => number_format($day['revenue'], 0, ',', '.') . ' VNĐ',
             ],
-            $last7
+            $bars
         );
     }
 
@@ -226,5 +251,23 @@ final class DashboardController extends BaseController
             'customers_7d_pct_text' => '0%',
             'stock_total' => 0,
         ];
+    }
+    /**
+     * Convert English day of week to Vietnamese
+     */
+    private static function getDayOfWeekVN(string $date): string
+    {
+        $dayMap = [
+            'Mon' => 'T2',
+            'Tue' => 'T3',
+            'Wed' => 'T4',
+            'Thu' => 'T5',
+            'Fri' => 'T6',
+            'Sat' => 'T7',
+            'Sun' => 'CN',
+        ];
+
+        $day = date('D', strtotime($date));
+        return $dayMap[$day] ?? $day;
     }
 }
