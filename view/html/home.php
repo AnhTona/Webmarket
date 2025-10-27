@@ -1,17 +1,3 @@
-<?php
-// Include Database class
-require_once __DIR__ . '/../../model/database.php';
-
-// Lấy connection từ Database singleton (nếu cần dùng)
-try {
-    $db = Database::getInstance();
-    $conn = $db->getConnection();
-} catch (Exception $e) {
-    // Log error nhưng không dừng trang vì home page load data qua JavaScript
-    error_log("Database connection warning: " . $e->getMessage());
-}
-?>
-
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -49,28 +35,28 @@ try {
 
 <section class="why-choose">
     <div class="content-wrapper">
-        <div id="box1" class="text-box active" style="background-image: url('../../image/bg5.jpg');">
+        <div id="box1" class="text-box active" style="background-image: url('../../image/bg5.webp');">
             <div class="overlay"></div>
             <div class="text">
                 <h3 class="box-title">Nguồn nguyên liệu chất lượng</h3>
                 <p>Từng lá trà, từng hạt nguyên liệu đều được tuyển chọn từ những vùng đất trứ danh, giữ trọn tinh hoa thiên nhiên trong từng hương vị.</p>
             </div>
         </div>
-        <div id="box2" class="text-box" style="background-image: url('../../image/bg1.jpg');">
+        <div id="box2" class="text-box" style="background-image: url('../../image/bg1.webp');">
             <div class="overlay"></div>
             <div class="text">
                 <h3 class="box-title">Nhân sự chuyên nghiệp</h3>
                 <p>Đội ngũ nghệ nhân và nhân viên tận tâm, giàu kinh nghiệm, không chỉ tạo ra sản phẩm, mà còn gửi gắm niềm đam mê và tình yêu vào từng chi tiết.</p>
             </div>
         </div>
-        <div id="box3" class="text-box" style="background-image: url('../../image/bg3.jpg');">
+        <div id="box3" class="text-box" style="background-image: url('../../image/bg3.webp');">
             <div class="overlay"></div>
             <div class="text">
                 <h3 class="box-title">Dây chuyền hiện đại</h3>
                 <p>Ứng dụng công nghệ tiên tiến kết hợp bí quyết truyền thống, mỗi sản phẩm đều đạt chuẩn an toàn, đồng đều và giữ nguyên hương vị thuần khiết.</p>
             </div>
         </div>
-        <div id="box4" class="text-box" style="background-image: url('../../image/bg4.jpg');">
+        <div id="box4" class="text-box" style="background-image: url('../../image/bg4.webp');">
             <div class="overlay"></div>
             <div class="text">
                 <h3 class="box-title">Dịch vụ tận tâm</h3>
@@ -107,7 +93,7 @@ try {
     <div class="inspiration-grid">
         <a href="blog.php?article=chon-tra" class="inspiration-card">
             <div class="card-image-wrapper">
-                <img src="../../image/pt1.jpg" alt="Chọn Trà">
+                <img src="../../image/pt1.webp" alt="Chọn Trà">
                 <span class="step-number">01</span>
             </div>
             <div class="card-content">
@@ -118,7 +104,7 @@ try {
 
         <a href="blog.php?article=cach-pha-tra" class="inspiration-card">
             <div class="card-image-wrapper">
-                <img src="../../image/pt2.jpg" alt="Pha Trà">
+                <img src="../../image/pt2.webp" alt="Pha Trà">
                 <span class="step-number">02</span>
             </div>
             <div class="card-content">
@@ -129,7 +115,7 @@ try {
 
         <a href="blog.php?article=thuong-tra" class="inspiration-card">
             <div class="card-image-wrapper">
-                <img src="../../image/pt3.jpg" alt="Thưởng Trà">
+                <img src="../../image/pt3.webp" alt="Thưởng Trà">
                 <span class="step-number">03</span>
             </div>
             <div class="card-content">

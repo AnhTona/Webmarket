@@ -46,7 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ====== Chuẩn hoá item từ API ======
     function normalizeImage(src) {
-        if (!src) return '/image/sp1.jpg';
+        if (!src) return '/image/sp1.webp';
         return src.startsWith('/') ? src : '/' + src.replace(/^\/+/, '');
     }
     function inferMainCategory(sub, name) {
@@ -153,7 +153,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return `
       <div class="product-card" data-category="${product.category}" data-sub-category="${product.subCategory}">
         ${/* Bỏ badge giảm % */ ''}
-        <img src="${product.image}" alt="${product.name}" onerror="this.src='image/sp1.jpg';">
+        <img src="${product.image}" alt="${product.name}" onerror="this.src='image/sp1.webp';">
         <h3>${product.name}</h3>
         <div class="product-info">
           ${product.oldPrice ? `<p class="old-price">${formattedOldPrice}</p>` : ''}

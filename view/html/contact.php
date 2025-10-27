@@ -28,7 +28,7 @@ try {
 <?php include 'header.php'; ?>
 
 <main>
-    <section class="contact-banner" style="background-image: url('../../image/banner.jpg');"></section>
+    <section class="contact-banner" style="background-image: url('../../image/banner.webp');"></section>
 
     <section class="contact-info-section">
         <div class="info-item">

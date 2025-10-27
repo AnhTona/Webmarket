@@ -97,7 +97,7 @@ try {
                         <p><strong>Số tài khoản:</strong> 0071000888888</p>
                         <p><strong>Chủ tài khoản:</strong> CÔNG TY CP HƯƠNG TRÀ</p>
                         <p class="transfer-note"><strong>Nội dung:</strong> TTDH-[Số ĐƠN HÀNG]-SĐT bạn</p>
-                        <img src="../../image/qr_code_vcb.png" alt="Mã QR Vietcombank" class="qr-code">
+                        <img src="../../image/qr_code_vcb.webp" alt="Mã QR Vietcombank" class="qr-code">
                     </div>
 
                     <div class="form-group upload-receipt-group">

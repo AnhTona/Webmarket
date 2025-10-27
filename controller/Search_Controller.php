@@ -157,7 +157,7 @@ final class SearchController
 
     private static function normalizeImage(string $src): string
     {
-        if ($src === '') return '/image/sp1.jpg';
+        if ($src === '') return '/image/sp1.webp';
         if ($src[0] !== '/') $src = '/' . ltrim($src, '/');
         return $src;
     }

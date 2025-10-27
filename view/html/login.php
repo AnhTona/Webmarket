@@ -9,20 +9,20 @@
 <section>
     <div class="leaves">
         <div class="set">
-            <div><img src="../../image/leaf_01.png" /></div>
-            <div><img src="../../image/leaf_02.png" /></div>
-            <div><img src="../../image/leaf_03.png" /></div>
-            <div><img src="../../image/leaf_04.png" /></div>
-            <div><img src="../../image/leaf_01.png" /></div>
-            <div><img src="../../image/leaf_02.png" /></div>
-            <div><img src="../../image/leaf_03.png" /></div>
-            <div><img src="../../image/leaf_04.png" /></div>
+            <div><img src="../../image/leaf-01.webp" /></div>
+            <div><img src="../../image/leaf-02.webp" /></div>
+            <div><img src="../../image/leaf-03.webp" /></div>
+            <div><img src="../../image/leaf-04.webp" /></div>
+            <div><img src="../../image/leaf-01.webp" /></div>
+            <div><img src="../../image/leaf-02.webp" /></div>
+            <div><img src="../../image/leaf-03.webp" /></div>
+            <div><img src="../../image/leaf-04.webp" /></div>
         </div>
     </div>
 
-    <img src="../../image/bg.jpg" class="bg" />
-    <img src="../../image/girl.png" class="girl" />
-    <img src="../../image/trees.png" class="trees" />
+    <img src="../../image/bg.webp" class="bg" />
+    <img src="../../image/girl.webp" class="girl" />
+    <img src="../../image/trees.webp" class="trees" />
 
     <div class="login">
         <h2>Đăng nhập</h2>

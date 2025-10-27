@@ -1,6 +1,6 @@
 <header class="header">
     <div class="logo">
-        <img src="../../image/logo.png" alt="Logo Trà & Bánh Trung Thu">
+        <img src="../../image/logo.webp" alt="Logo Trà & Bánh Trung Thu">
     </div>
     <nav>
         <ul>
