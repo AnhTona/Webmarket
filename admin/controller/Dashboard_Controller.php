@@ -89,7 +89,7 @@ final class DashboardController extends BaseController
         $newCustomers7d = (int)self::fetchOne(
             "SELECT COUNT(*) FROM nguoidung
              WHERE NgayTao >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
-               AND VaiTro = 'CUSTOMER'"
+               AND VaiTro = 'USER'"
         );
 
         // New customers previous 7 days
@@ -97,7 +97,7 @@ final class DashboardController extends BaseController
             "SELECT COUNT(*) FROM nguoidung
              WHERE NgayTao >= DATE_SUB(CURDATE(), INTERVAL 14 DAY)
                AND NgayTao < DATE_SUB(CURDATE(), INTERVAL 7 DAY)
-               AND VaiTro = 'CUSTOMER'"
+               AND VaiTro = 'USER'"
         );
 
         // Total stock

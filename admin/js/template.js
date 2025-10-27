@@ -11,7 +11,7 @@
     function refreshNotifications() {
         if (document.hidden) return;
 
-        AdminUtils.ajax('ajax/get_notifications.php', { showLoading: false })
+        AdminUtils.ajax('../controller/get_notifications.php', { showLoading: false })
             .then(result => {
                 if (result.success && result.data.ok) {
                     updateNotificationBadge(result.data.count);

@@ -19,9 +19,9 @@ final class OrdersController extends BaseController
 {
     /**
      * Order status mapping (DB ↔ UI)
-     * Using PHP 8.4 property hooks
+     * ✅ FIXED: Removed 'array' keyword for PHP 8.3 compatibility
      */
-    private const array DB_TO_UI = [
+    private const DB_TO_UI = [
         'DRAFT' => 'Nháp',
         'PLACED' => 'Chờ xác nhận',
         'CONFIRMED' => 'Đang chuẩn bị',
@@ -30,7 +30,7 @@ final class OrdersController extends BaseController
         'CANCELLED' => 'Đã hủy',
     ];
 
-    private const array UI_TO_DB = [
+    private const UI_TO_DB = [
         'Nháp' => 'DRAFT',
         'Chờ xác nhận' => 'PLACED',
         'Đang chuẩn bị' => 'CONFIRMED',
@@ -42,7 +42,7 @@ final class OrdersController extends BaseController
     /**
      * Membership discount rates
      */
-    private const array DISCOUNT_RATES = [
+    private const DISCOUNT_RATES = [
         'Gold' => 0.15,
         'Silver' => 0.10,
         'Bronze' => 0.05,
@@ -202,18 +202,19 @@ final class OrdersController extends BaseController
         }
 
         try {
-            // Get order info
+            // ✅ FIXED: Use thanhtoan.PhuongThuc instead of non-existent table
+            // ✅ FIXED: Changed HangThanhVien to Hang
             $order = self::fetchRow(
                 "SELECT 
                     dh.*,
                     nd.HoTen AS KhachHang,
                     nd.Email,
                     nd.SoDienThoai,
-                    nd.HangThanhVien AS HangTV,
-                    pt.TenPhuongThuc AS PhuongThuc
+                    nd.Hang AS HangTV,
+                    tt.PhuongThuc AS PhuongThuc
                  FROM donhang dh
                  LEFT JOIN nguoidung nd ON dh.MaNguoiDung = nd.MaNguoiDung
-                 LEFT JOIN phuongthucthanhtoan pt ON dh.MaPhuongThuc = pt.MaPhuongThuc
+                 LEFT JOIN thanhtoan tt ON dh.MaDonHang = tt.MaDonHang
                  WHERE dh.MaDonHang = ?",
                 [$id]
             );
@@ -222,14 +223,14 @@ final class OrdersController extends BaseController
                 self::error('Không tìm thấy đơn hàng');
             }
 
-            // Get order items
+            // ✅ FIXED: Changed GiaBan to DonGia (correct column name)
             $items = self::fetchAll(
                 "SELECT 
                     sp.TenSanPham,
                     sp.HinhAnh,
                     ctdh.SoLuong,
-                    ctdh.GiaBan AS Gia,
-                    (ctdh.SoLuong * ctdh.GiaBan) AS Tong
+                    ctdh.DonGia AS Gia,
+                    (ctdh.SoLuong * ctdh.DonGia) AS Tong
                  FROM chitietdonhang ctdh
                  LEFT JOIN sanpham sp ON ctdh.MaSanPham = sp.MaSanPham
                  WHERE ctdh.MaDonHang = ?",
@@ -370,17 +371,18 @@ final class OrdersController extends BaseController
 
         $totalPages = max(1, (int)ceil($total / $perPage));
 
-        // Fetch data
+        // ✅ FIXED: Removed BanPhucVu, added JOIN with bantrongquan
         $orders = self::fetchAll(
             "SELECT 
                 dh.MaDonHang AS MaDon,
                 nd.HoTen AS KhachHang,
-                dh.BanPhucVu AS Ban,
+                CONCAT('Bàn ', COALESCE(b.MaBan, 'N/A')) AS Ban,
                 dh.NgayDat,
                 dh.TongTien,
                 dh.TrangThai
              FROM donhang dh
              LEFT JOIN nguoidung nd ON dh.MaNguoiDung = nd.MaNguoiDung
+             LEFT JOIN bantrongquan b ON dh.MaBan = b.MaBan
              {$where}
              ORDER BY dh.NgayDat DESC
              LIMIT ? OFFSET ?",

@@ -37,6 +37,100 @@ abstract class BaseController
     }
 
     /**
+     * Check if request is AJAX
+     */
+    protected static function isAjax(): bool
+    {
+        return !empty($_SERVER['HTTP_X_REQUESTED_WITH']) &&
+            strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
+    }
+
+    /**
+     * Get database connection
+     */
+    protected static function db(): mysqli
+    {
+        $db = Database::getInstance();
+        return $db->getConnection();
+    }
+
+    /**
+     * Execute query (INSERT, UPDATE, DELETE)
+     */
+    protected static function query(string $sql, array $params = []): bool
+    {
+        $conn = self::db();
+        $stmt = $conn->prepare($sql);
+
+        if (!$stmt) {
+            throw new RuntimeException("Query preparation failed: " . $conn->error);
+        }
+
+        if (!empty($params)) {
+            $types = str_repeat('s', count($params));
+            $stmt->bind_param($types, ...$params);
+        }
+
+        $result = $stmt->execute();
+        $stmt->close();
+
+        return $result;
+    }
+
+    /**
+     * Execute transaction
+     */
+    protected static function transaction(callable $callback): void
+    {
+        $conn = self::db();
+        $conn->begin_transaction();
+
+        try {
+            $callback();
+            $conn->commit();
+        } catch (Throwable $e) {
+            $conn->rollback();
+            throw $e;
+        }
+    }
+
+    /**
+     * Sanitize input string
+     */
+    protected static function sanitize(string $input): string
+    {
+        return htmlspecialchars(trim($input), ENT_QUOTES, 'UTF-8');
+    }
+
+    /**
+     * Send JSON success response and exit
+     */
+    protected static function success(string $message, array $data = []): never
+    {
+        header('Content-Type: application/json');
+        echo json_encode([
+            'success' => true,
+            'message' => $message,
+            'data' => $data
+        ]);
+        exit;
+    }
+
+    /**
+     * Send JSON error response and exit
+     */
+    protected static function error(string $message, int $code = 400): never
+    {
+        http_response_code($code);
+        header('Content-Type: application/json');
+        echo json_encode([
+            'success' => false,
+            'error' => $message
+        ]);
+        exit;
+    }
+
+    /**
      * Fetch a single row from database
      */
     protected static function fetchRow(string $sql, array $params = []): ?array

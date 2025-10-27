@@ -1,46 +1,21 @@
 <?php
 declare(strict_types=1);
 
-/**
- * Customers_Controller.php
- * Customer management controller with PHP 8.4 features
- *
- * @package Admin\Controller
- * @author AnhTona
- * @version 2.0.0
- * @since PHP 8.4
- */
-
 require_once __DIR__ . '/../../model/database.php';
 require_once __DIR__ . '/BaseController.php';
 
 final class CustomersController extends BaseController
 {
-    /**
-     * Membership rank thresholds and time window
-     */
-    private const RANK_WINDOW_DAYS = 365; // 12 months
+    private const RANK_WINDOW_DAYS = 365;
     private const RANK_SILVER_MIN = 2_000_000;
     private const RANK_GOLD_MIN = 5_000_000;
-
-    /**
-     * Order statuses counted for revenue
-     */
     private const PAID_STATUSES = ['CONFIRMED', 'SHIPPING', 'DONE'];
 
-    /**
-     * Handle customer requests
-     *
-     * @return array<string, mixed>
-     */
     public static function handle(): array
     {
         self::requireAuth();
-
-        $method = $_SERVER['REQUEST_METHOD'];
         $action = $_GET['action'] ?? $_POST['action'] ?? 'index';
 
-        // AJAX requests
         if (self::isAjax()) {
             try {
                 return match($action) {
@@ -56,7 +31,6 @@ final class CustomersController extends BaseController
             }
         }
 
-        // List view
         try {
             return self::index();
         } catch (Throwable $e) {
@@ -68,28 +42,20 @@ final class CustomersController extends BaseController
         }
     }
 
-    /**
-     * List customers with filters
-     *
-     * @return array<string, mixed>
-     */
     private static function index(): array
     {
         $perPage = max(1, (int)($_GET['per_page'] ?? 20));
         $page = max(1, (int)($_GET['page'] ?? 1));
         $offset = ($page - 1) * $perPage;
 
-        // Filters
         $search = self::sanitize($_GET['q'] ?? $_GET['search'] ?? '');
         $status = $_GET['status'] ?? 'All';
         $rank = $_GET['rank'] ?? 'All';
-        $city = self::sanitize($_GET['city'] ?? '');
         $dateFrom = $_GET['date_from'] ?? '';
         $dateTo = $_GET['date_to'] ?? '';
 
-        [$where, $params] = self::buildWhereClause($search, $status, $rank, $city, $dateFrom, $dateTo);
+        [$where, $params] = self::buildWhereClause($search, $status, $rank, $dateFrom, $dateTo);
 
-        // Count total
         $total = (int)self::fetchOne(
             "SELECT COUNT(*) FROM nguoidung nd {$where}",
             $params
@@ -97,7 +63,7 @@ final class CustomersController extends BaseController
 
         $totalPages = max(1, (int)ceil($total / $perPage));
 
-        // Fetch customers with computed rank
+        // ✅ SỬA: Dùng đúng tên cột Hang, bỏ ThanhPho/GhiChu
         $customers = self::fetchAll(
             "SELECT 
                 nd.MaNguoiDung as id,
@@ -105,8 +71,7 @@ final class CustomersController extends BaseController
                 nd.Email as email,
                 nd.SoDienThoai as phone,
                 nd.DiaChi as address,
-                nd.ThanhPho as city,
-                nd.HangThanhVien as rank,
+                nd.Hang as rank,
                 IF(nd.TrangThai = 1, 'Hoạt động', 'Ngừng') as status,
                 nd.NgayTao as created_at,
                 COALESCE(SUM(
@@ -126,7 +91,6 @@ final class CustomersController extends BaseController
             [self::RANK_WINDOW_DAYS, ...$params, $perPage, $offset]
         );
 
-        // Update ranks if needed
         foreach ($customers as &$customer) {
             $computedRank = self::computeRank((float)$customer['total_spent']);
             if ($computedRank !== $customer['rank']) {
@@ -143,26 +107,21 @@ final class CustomersController extends BaseController
         ];
     }
 
-    /**
-     * Build WHERE clause for filters
-     *
-     * @return array{string, array<int, mixed>}
-     */
     private static function buildWhereClause(
         string $search,
         string $status,
         string $rank,
-        string $city,
         string $dateFrom,
         string $dateTo
     ): array {
-        $where = ["nd.VaiTro = 'CUSTOMER'"]; // Only customers
+        // ✅ SỬA: Filter đúng VaiTro (bao gồm empty string)
+        $where = ["(nd.VaiTro = '' OR nd.VaiTro IS NULL OR nd.VaiTro = 'USER')"];
         $params = [];
 
         if ($search !== '') {
-            $where[] = "(nd.HoTen LIKE ? OR nd.Email LIKE ? OR nd.SoDienThoai LIKE ? OR CAST(nd.MaNguoiDung AS CHAR) LIKE ?)";
+            $where[] = "(nd.HoTen LIKE ? OR nd.Email LIKE ? OR nd.SoDienThoai LIKE ?)";
             $searchParam = "%{$search}%";
-            $params = array_merge($params, [$searchParam, $searchParam, $searchParam, $searchParam]);
+            $params = array_merge($params, [$searchParam, $searchParam, $searchParam]);
         }
 
         if ($status === 'Hoạt động') {
@@ -172,13 +131,8 @@ final class CustomersController extends BaseController
         }
 
         if ($rank !== 'All' && $rank !== '') {
-            $where[] = "nd.HangThanhVien = ?";
+            $where[] = "nd.Hang = ?"; // ✅ SỬA: HangThanhVien -> Hang
             $params[] = $rank;
-        }
-
-        if ($city !== '') {
-            $where[] = "nd.ThanhPho LIKE ?";
-            $params[] = "%{$city}%";
         }
 
         if ($dateFrom !== '') {
@@ -191,14 +145,9 @@ final class CustomersController extends BaseController
             $params[] = $dateTo;
         }
 
-        $whereClause = 'WHERE ' . implode(' AND ', $where);
-
-        return [$whereClause, $params];
+        return ['WHERE ' . implode(' AND ', $where), $params];
     }
 
-    /**
-     * Compute membership rank from spending amount
-     */
     private static function computeRank(float $amount): string
     {
         return match(true) {
@@ -209,22 +158,15 @@ final class CustomersController extends BaseController
         };
     }
 
-    /**
-     * Update customer rank in database
-     */
+    // ✅ SỬA: Update đúng cột Hang
     private static function updateCustomerRank(int $customerId, string $rank): void
     {
         self::query(
-            "UPDATE nguoidung SET HangThanhVien = ? WHERE MaNguoiDung = ?",
+            "UPDATE nguoidung SET Hang = ? WHERE MaNguoiDung = ?",
             [$rank, $customerId]
         );
     }
 
-    /**
-     * Save customer (create or update)
-     *
-     * @return never
-     */
     private static function save(): never
     {
         $id = (int)($_POST['id'] ?? 0);
@@ -232,164 +174,115 @@ final class CustomersController extends BaseController
         $email = self::sanitize($_POST['email'] ?? '');
         $phone = self::sanitize($_POST['phone'] ?? '');
         $address = self::sanitize($_POST['address'] ?? '');
-        $city = self::sanitize($_POST['city'] ?? '');
         $status = $_POST['status'] === 'Hoạt động' ? 1 : 0;
-        $notes = self::sanitize($_POST['notes'] ?? '');
 
-        // Validate
         if ($name === '' || $email === '' || $phone === '') {
             self::error('Vui lòng điền đầy đủ thông tin khách hàng');
         }
 
-        // Validate email format
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
             self::error('Email không hợp lệ');
         }
 
         try {
-            self::transaction(function() use ($id, $name, $email, $phone, $address, $city, $status, $notes) {
+            self::transaction(function() use ($id, $name, $email, $phone, $address, $status) {
                 if ($id > 0) {
-                    // Update existing customer
+                    // ✅ SỬA: Bỏ ThanhPho, GhiChu
                     self::query(
                         "UPDATE nguoidung 
-                         SET HoTen = ?, Email = ?, SoDienThoai = ?, DiaChi = ?, ThanhPho = ?, TrangThai = ?, GhiChu = ?
+                         SET HoTen = ?, Email = ?, SoDienThoai = ?, DiaChi = ?, TrangThai = ?
                          WHERE MaNguoiDung = ?",
-                        [$name, $email, $phone, $address, $city, $status, $notes, $id]
+                        [$name, $email, $phone, $address, $status, $id]
                     );
 
-                    self::log('update_customer', ['customer_id' => $id, 'name' => $name]);
+                    self::log('update_customer', ['customer_id' => $id]);
                 } else {
-                    // Create new customer
                     self::query(
-                        "INSERT INTO nguoidung (HoTen, Email, SoDienThoai, DiaChi, ThanhPho, TrangThai, GhiChu, VaiTro, NgayTao)
-                         VALUES (?, ?, ?, ?, ?, ?, ?, 'CUSTOMER', NOW())",
-                        [$name, $email, $phone, $address, $city, $status, $notes]
+                        "INSERT INTO nguoidung (HoTen, Email, SoDienThoai, DiaChi, TrangThai, VaiTro, NgayTao)
+                         VALUES (?, ?, ?, ?, ?, '', NOW())",
+                        [$name, $email, $phone, $address, $status]
                     );
 
                     $id = self::db()->insert_id;
-                    self::log('create_customer', ['customer_id' => $id, 'name' => $name]);
+                    self::log('create_customer', ['customer_id' => $id]);
                 }
             });
 
-            self::success(
-                $id > 0 ? 'Cập nhật khách hàng thành công!' : 'Thêm khách hàng thành công!',
-                ['customer_id' => $id]
-            );
+            self::success('Thành công!', ['customer_id' => $id]);
 
         } catch (Throwable $e) {
             error_log("Save Customer Error: " . $e->getMessage());
-
-            // Check for duplicate email
             if (str_contains($e->getMessage(), 'Duplicate entry')) {
-                self::error('Email đã tồn tại trong hệ thống');
+                self::error('Email đã tồn tại');
             }
-
             self::error($e->getMessage());
         }
     }
 
-    /**
-     * Delete customer
-     *
-     * @return never
-     */
     private static function delete(): never
     {
         $id = (int)($_GET['id'] ?? 0);
-
-        if ($id <= 0) {
-            self::error('Thiếu ID khách hàng');
-        }
+        if ($id <= 0) self::error('Thiếu ID');
 
         try {
             self::transaction(function() use ($id) {
-                // Get customer info for logging
                 $customer = self::fetchRow(
-                    "SELECT HoTen, Email FROM nguoidung WHERE MaNguoiDung = ?",
+                    "SELECT HoTen FROM nguoidung WHERE MaNguoiDung = ?",
                     [$id]
                 );
 
-                if (!$customer) {
-                    throw new RuntimeException('Không tìm thấy khách hàng');
-                }
+                if (!$customer) throw new RuntimeException('Không tìm thấy khách hàng');
 
-                // Check if customer has orders
                 $orderCount = (int)self::fetchOne(
                     "SELECT COUNT(*) FROM donhang WHERE MaNguoiDung = ?",
                     [$id]
                 );
 
                 if ($orderCount > 0) {
-                    throw new RuntimeException(
-                        "Không thể xóa khách hàng đã có {$orderCount} đơn hàng. Hãy vô hiệu hóa thay vì xóa."
-                    );
+                    throw new RuntimeException("Khách hàng đã có {$orderCount} đơn hàng");
                 }
 
-                // Delete customer
                 self::query("DELETE FROM nguoidung WHERE MaNguoiDung = ?", [$id]);
-
-                self::log('delete_customer', [
-                    'customer_id' => $id,
-                    'name' => $customer['HoTen'],
-                    'email' => $customer['Email'],
-                ]);
+                self::log('delete_customer', ['id' => $id]);
             });
 
-            self::success('Xóa khách hàng thành công!');
+            self::success('Xóa thành công!');
 
         } catch (Throwable $e) {
-            error_log("Delete Customer Error: " . $e->getMessage());
+            error_log("Delete Error: " . $e->getMessage());
             self::error($e->getMessage());
         }
     }
 
-    /**
-     * Toggle customer status (active/inactive)
-     *
-     * @return never
-     */
     private static function toggleStatus(): never
     {
         $id = (int)($_GET['id'] ?? 0);
-
-        if ($id <= 0) {
-            self::error('Thiếu ID khách hàng');
-        }
+        if ($id <= 0) self::error('Thiếu ID');
 
         try {
             self::transaction(function() use ($id) {
-                $currentStatus = (int)self::fetchOne(
+                $current = (int)self::fetchOne(
                     "SELECT TrangThai FROM nguoidung WHERE MaNguoiDung = ?",
                     [$id]
                 );
 
-                $newStatus = $currentStatus === 1 ? 0 : 1;
-
+                $new = $current === 1 ? 0 : 1;
                 self::query(
                     "UPDATE nguoidung SET TrangThai = ? WHERE MaNguoiDung = ?",
-                    [$newStatus, $id]
+                    [$new, $id]
                 );
 
-                self::log('toggle_customer_status', [
-                    'customer_id' => $id,
-                    'from_status' => $currentStatus,
-                    'to_status' => $newStatus,
-                ]);
+                self::log('toggle_customer_status', ['id' => $id, 'new' => $new]);
             });
 
-            self::success('Cập nhật trạng thái thành công!');
+            self::success('Cập nhật thành công!');
 
         } catch (Throwable $e) {
-            error_log("Toggle Status Error: " . $e->getMessage());
+            error_log("Toggle Error: " . $e->getMessage());
             self::error($e->getMessage());
         }
     }
 
-    /**
-     * Recompute ranks for all customers
-     *
-     * @return never
-     */
     private static function recomputeAllRanks(): never
     {
         try {
@@ -406,7 +299,7 @@ final class CustomersController extends BaseController
                     ), 0) as total_spent
                  FROM nguoidung nd
                  LEFT JOIN donhang dh ON nd.MaNguoiDung = dh.MaNguoiDung
-                 WHERE nd.VaiTro = 'CUSTOMER'
+                 WHERE (nd.VaiTro = '' OR nd.VaiTro IS NULL OR nd.VaiTro = 'USER')
                  GROUP BY nd.MaNguoiDung",
                 [self::RANK_WINDOW_DAYS]
             );
@@ -420,31 +313,28 @@ final class CustomersController extends BaseController
                 }
             });
 
-            self::log('recompute_all_ranks', ['customers_updated' => $updated]);
-
-            self::success("Đã cập nhật hạng cho {$updated} khách hàng!");
+            self::log('recompute_all_ranks', ['count' => $updated]);
+            self::success("Đã cập nhật {$updated} khách hàng!");
 
         } catch (Throwable $e) {
-            error_log("Recompute Ranks Error: " . $e->getMessage());
+            error_log("Recompute Error: " . $e->getMessage());
             self::error($e->getMessage());
         }
     }
 
-    /**
-     * Get customer statistics
-     *
-     * @return array<string, mixed>
-     */
     public static function getStatistics(): array
     {
+        // ✅ SỬA: Dùng đúng tên cột Hang
+        $vaiTroFilter = "(VaiTro = '' OR VaiTro IS NULL OR VaiTro = 'USER')";
+
         return [
-            'total_customers' => (int)self::fetchOne("SELECT COUNT(*) FROM nguoidung WHERE VaiTro = 'CUSTOMER'"),
-            'active' => (int)self::fetchOne("SELECT COUNT(*) FROM nguoidung WHERE VaiTro = 'CUSTOMER' AND TrangThai = 1"),
-            'inactive' => (int)self::fetchOne("SELECT COUNT(*) FROM nguoidung WHERE VaiTro = 'CUSTOMER' AND TrangThai = 0"),
-            'gold' => (int)self::fetchOne("SELECT COUNT(*) FROM nguoidung WHERE VaiTro = 'CUSTOMER' AND HangThanhVien = 'Gold'"),
-            'silver' => (int)self::fetchOne("SELECT COUNT(*) FROM nguoidung WHERE VaiTro = 'CUSTOMER' AND HangThanhVien = 'Silver'"),
-            'bronze' => (int)self::fetchOne("SELECT COUNT(*) FROM nguoidung WHERE VaiTro = 'CUSTOMER' AND HangThanhVien = 'Bronze'"),
-            'new' => (int)self::fetchOne("SELECT COUNT(*) FROM nguoidung WHERE VaiTro = 'CUSTOMER' AND HangThanhVien = 'Mới'"),
+            'total_customers' => (int)self::fetchOne("SELECT COUNT(*) FROM nguoidung WHERE {$vaiTroFilter}"),
+            'active' => (int)self::fetchOne("SELECT COUNT(*) FROM nguoidung WHERE {$vaiTroFilter} AND TrangThai = 1"),
+            'inactive' => (int)self::fetchOne("SELECT COUNT(*) FROM nguoidung WHERE {$vaiTroFilter} AND TrangThai = 0"),
+            'gold' => (int)self::fetchOne("SELECT COUNT(*) FROM nguoidung WHERE {$vaiTroFilter} AND Hang = 'Gold'"),
+            'silver' => (int)self::fetchOne("SELECT COUNT(*) FROM nguoidung WHERE {$vaiTroFilter} AND Hang = 'Silver'"),
+            'bronze' => (int)self::fetchOne("SELECT COUNT(*) FROM nguoidung WHERE {$vaiTroFilter} AND Hang = 'Bronze'"),
+            'new' => (int)self::fetchOne("SELECT COUNT(*) FROM nguoidung WHERE {$vaiTroFilter} AND Hang = 'Mới'"),
         ];
     }
 }
