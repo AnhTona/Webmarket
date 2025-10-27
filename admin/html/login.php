@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/config.php';
 requireAuth();
-require_once __DIR__ . '/../controller/controller_admin_login.php';
+require_once __DIR__ . '/../controller/AuthController.php';
 $ctx = AuthController::handle();
 $error = $ctx['error'] ?? null;
 ?>

@@ -1,294 +1,464 @@
 <?php
-// admin/controller/Orders_Controller.php
-// Thêm chức năng xem hóa đơn đã lưu
+declare(strict_types=1);
+
+/**
+ * Orders_Controller.php
+ * Order management controller with PHP 8.4 features
+ *
+ * @package Admin\Controller
+ * @author AnhTona
+ * @version 2.0.0
+ * @since PHP 8.4
+ */
 
 require_once __DIR__ . '/../../model/database.php';
+require_once __DIR__ . '/BaseController.php';
 require_once __DIR__ . '/../html/Invoice_Generator.php';
 
-class OrdersController
+final class OrdersController extends BaseController
 {
-    // Map trạng thái DB ↔ UI
-    private const DB2UI = [
-        'DRAFT'     => 'Nháp',
-        'PLACED'    => 'Chờ xác nhận',
+    /**
+     * Order status mapping (DB ↔ UI)
+     * Using PHP 8.4 property hooks
+     */
+    private const array DB_TO_UI = [
+        'DRAFT' => 'Nháp',
+        'PLACED' => 'Chờ xác nhận',
         'CONFIRMED' => 'Đang chuẩn bị',
-        'SHIPPING'  => 'Đang giao',
-        'DONE'      => 'Hoàn thành',
+        'SHIPPING' => 'Đang giao',
+        'DONE' => 'Hoàn thành',
         'CANCELLED' => 'Đã hủy',
     ];
 
-    private const UI2DB = [
-        'Nháp'           => 'DRAFT',
-        'Chờ xác nhận'   => 'PLACED',
-        'Đang chuẩn bị'  => 'CONFIRMED',
-        'Đang giao'      => 'SHIPPING',
-        'Hoàn thành'     => 'DONE',
-        'Đã hủy'         => 'CANCELLED',
+    private const array UI_TO_DB = [
+        'Nháp' => 'DRAFT',
+        'Chờ xác nhận' => 'PLACED',
+        'Đang chuẩn bị' => 'CONFIRMED',
+        'Đang giao' => 'SHIPPING',
+        'Hoàn thành' => 'DONE',
+        'Đã hủy' => 'CANCELLED',
     ];
 
+    /**
+     * Membership discount rates
+     */
+    private const array DISCOUNT_RATES = [
+        'Gold' => 0.15,
+        'Silver' => 0.10,
+        'Bronze' => 0.05,
+        'Mới' => 0.00,
+    ];
+
+    /**
+     * Handle order requests
+     *
+     * @return array<string, mixed>
+     */
     public static function handle(): array
     {
-        if (isset($_GET['ajax'])) {
-            header('Content-Type: application/json; charset=utf-8');
-            $action = $_GET['action'] ?? ($_POST['action'] ?? '');
+        self::requireAuth();
+
+        // AJAX requests
+        if (self::isAjax()) {
+            $action = $_GET['action'] ?? $_POST['action'] ?? '';
+
             try {
-                switch ($action) {
-                    case 'confirm':  return self::json(self::updateStatus('CONFIRMED'));
-                    case 'cancel':   return self::json(self::updateStatus('CANCELLED'));
-                    case 'complete': return self::json(self::updateStatus('DONE'));
-                    case 'change_status': return self::json(self::changeStatusByText());
-                    case 'view':     return self::json(self::viewInvoice());
-                    case 'generate_invoice': return self::json(self::generateInvoice());
-                    default:         return self::json(['ok'=>false,'message'=>'Thiếu hoặc sai action']);
-                }
+                match($action) {
+                    'confirm' => self::updateStatus('CONFIRMED'),
+                    'cancel' => self::updateStatus('CANCELLED'),
+                    'complete' => self::updateStatus('DONE'),
+                    'view' => self::viewInvoice(),
+                    'generate_invoice' => self::generateInvoice(),
+                    default => self::error('Invalid action')
+                };
             } catch (Throwable $e) {
-                return self::json(['ok'=>false,'message'=>'Lỗi: '.$e->getMessage()]);
+                error_log("Orders AJAX Error: " . $e->getMessage());
+                self::error($e->getMessage());
             }
         }
 
-        // Xử lý view invoice HTML trực tiếp
+        // View invoice HTML
         if (isset($_GET['view_invoice'])) {
             self::displayInvoice();
-            exit;
         }
 
-        [$orders, $page, $totalPages] = self::fetchList();
-        return [
-            'order_list'  => $orders,
-            'page'        => $page,
-            'total_pages' => $totalPages,
-        ];
+        // List view
+        try {
+            [$orders, $page, $totalPages] = self::fetchList();
+            return [
+                'order_list' => $orders,
+                'page' => $page,
+                'total_pages' => $totalPages,
+            ];
+        } catch (Throwable $e) {
+            error_log("Orders List Error: " . $e->getMessage());
+            return [
+                'order_list' => [],
+                'page' => 1,
+                'total_pages' => 1,
+                'error' => 'Không thể tải danh sách đơn hàng',
+            ];
+        }
     }
-
-    /* ============ DB Connect - OOP Version ============ */
-    private static function getConnection(): mysqli
-    {
-        $db = Database::getInstance();
-        return $db->getConnection();
-    }
-
-    /* ============ INVOICE HANDLING ============ */
 
     /**
-     * Xem hóa đơn (trả về thông tin cho AJAX)
+     * Update order status with transaction
      */
-    private static function viewInvoice(): array
+    private static function updateStatus(string $newStatus): never
+    {
+        $orderId = (int)($_GET['id'] ?? $_POST['id'] ?? 0);
+
+        if ($orderId <= 0) {
+            self::error('Thiếu ID đơn hàng');
+        }
+
+        try {
+            self::transaction(function() use ($orderId, $newStatus) {
+                // Check if order exists
+                $currentStatus = self::fetchOne(
+                    "SELECT TrangThai FROM donhang WHERE MaDonHang = ?",
+                    [$orderId]
+                );
+
+                if (!$currentStatus) {
+                    throw new RuntimeException('Không tìm thấy đơn hàng');
+                }
+
+                // Validate status transition
+                self::validateStatusTransition($currentStatus, $newStatus);
+
+                // Update status
+                self::query(
+                    "UPDATE donhang SET TrangThai = ?, NgayCapNhat = NOW() WHERE MaDonHang = ?",
+                    [$newStatus, $orderId]
+                );
+
+                // Create status history
+                self::query(
+                    "INSERT INTO donhang_lichsu (MaDonHang, TrangThaiCu, TrangThaiMoi, NguoiThayDoi, NgayThayDoi)
+                     VALUES (?, ?, ?, ?, NOW())",
+                    [$orderId, $currentStatus, $newStatus, $_SESSION['user_id']]
+                );
+
+                self::log('update_order_status', [
+                    'order_id' => $orderId,
+                    'from_status' => $currentStatus,
+                    'to_status' => $newStatus,
+                ]);
+            });
+
+            $statusText = self::DB_TO_UI[$newStatus] ?? $newStatus;
+            self::success(
+                message: "Đã cập nhật trạng thái thành: {$statusText}",
+                data: [
+                    'order_id' => $orderId,
+                    'new_status' => $newStatus,
+                    'status_text' => $statusText,
+                ]
+            );
+
+        } catch (Throwable $e) {
+            error_log("Update Status Error: " . $e->getMessage());
+            self::error($e->getMessage());
+        }
+    }
+
+    /**
+     * Validate status transition
+     */
+    private static function validateStatusTransition(string $from, string $to): void
+    {
+        $validTransitions = [
+            'DRAFT' => ['PLACED', 'CANCELLED'],
+            'PLACED' => ['CONFIRMED', 'CANCELLED'],
+            'CONFIRMED' => ['SHIPPING', 'DONE', 'CANCELLED'],
+            'SHIPPING' => ['DONE', 'CANCELLED'],
+            'DONE' => [],
+            'CANCELLED' => [],
+        ];
+
+        if (!isset($validTransitions[$from])) {
+            throw new RuntimeException("Trạng thái hiện tại không hợp lệ: {$from}");
+        }
+
+        if (!in_array($to, $validTransitions[$from], true)) {
+            $fromText = self::DB_TO_UI[$from] ?? $from;
+            $toText = self::DB_TO_UI[$to] ?? $to;
+            throw new RuntimeException(
+                "Không thể chuyển từ '{$fromText}' sang '{$toText}'"
+            );
+        }
+    }
+
+    /**
+     * View invoice details for AJAX
+     */
+    private static function viewInvoice(): never
     {
         $id = (int)($_GET['id'] ?? 0);
-        if (!$id) return ['ok'=>false, 'message'=>'Thiếu id'];
 
-        // Kiểm tra xem hóa đơn đã tồn tại chưa
-        if (!InvoiceGenerator::invoiceExists($id)) {
-            // Tự động tạo hóa đơn nếu chưa có
-            $generated = InvoiceGenerator::generateInvoice($id);
-            if (!$generated) {
-                return ['ok'=>false, 'message'=>'Không thể tạo hóa đơn'];
+        if ($id <= 0) {
+            self::error('Thiếu ID đơn hàng');
+        }
+
+        try {
+            // Get order info
+            $order = self::fetchRow(
+                "SELECT 
+                    dh.*,
+                    nd.HoTen AS KhachHang,
+                    nd.Email,
+                    nd.SoDienThoai,
+                    nd.HangThanhVien AS HangTV,
+                    pt.TenPhuongThuc AS PhuongThuc
+                 FROM donhang dh
+                 LEFT JOIN nguoidung nd ON dh.MaNguoiDung = nd.MaNguoiDung
+                 LEFT JOIN phuongthucthanhtoan pt ON dh.MaPhuongThuc = pt.MaPhuongThuc
+                 WHERE dh.MaDonHang = ?",
+                [$id]
+            );
+
+            if (!$order) {
+                self::error('Không tìm thấy đơn hàng');
             }
-        }
 
-        // Trả về URL để mở hóa đơn
-        return [
-            'ok' => true,
-            'invoice_url' => "orders.php?view_invoice=1&id={$id}"
-        ];
+            // Get order items
+            $items = self::fetchAll(
+                "SELECT 
+                    sp.TenSanPham,
+                    sp.HinhAnh,
+                    ctdh.SoLuong,
+                    ctdh.GiaBan AS Gia,
+                    (ctdh.SoLuong * ctdh.GiaBan) AS Tong
+                 FROM chitietdonhang ctdh
+                 LEFT JOIN sanpham sp ON ctdh.MaSanPham = sp.MaSanPham
+                 WHERE ctdh.MaDonHang = ?",
+                [$id]
+            );
+
+            // Calculate totals
+            $subtotal = array_sum(array_column($items, 'Tong'));
+            $discountRate = self::DISCOUNT_RATES[$order['HangTV']] ?? 0.00;
+            $discountAmount = $subtotal * $discountRate;
+            $afterDiscount = $subtotal - $discountAmount;
+            $vat = $afterDiscount * 0.08;
+            $grandTotal = $afterDiscount + $vat;
+
+            self::success(
+                message: 'Chi tiết đơn hàng',
+                data: [
+                    'order' => $order,
+                    'items' => $items,
+                    'calculations' => [
+                        'subtotal' => $subtotal,
+                        'discount_rate' => $discountRate,
+                        'discount_amount' => $discountAmount,
+                        'after_discount' => $afterDiscount,
+                        'vat' => $vat,
+                        'grand_total' => $grandTotal,
+                    ],
+                ]
+            );
+
+        } catch (Throwable $e) {
+            error_log("View Invoice Error: " . $e->getMessage());
+            self::error($e->getMessage());
+        }
     }
 
     /**
-     * Hiển thị hóa đơn HTML
+     * Generate invoice PDF/HTML
      */
-    private static function displayInvoice(): void
+    private static function generateInvoice(): never
     {
         $id = (int)($_GET['id'] ?? 0);
-        if (!$id) {
-            echo "Thiếu mã đơn hàng";
-            return;
+
+        if ($id <= 0) {
+            self::error('Thiếu ID đơn hàng');
         }
 
-        $invoicePath = InvoiceGenerator::getInvoicePath($id);
-        if (!$invoicePath) {
-            echo "Không tìm thấy hóa đơn";
-            return;
-        }
+        try {
+            // Check if invoice exists
+            if (InvoiceGenerator::invoiceExists($id)) {
+                self::success(
+                    message: 'Invoice đã tồn tại',
+                    data: [
+                        'order_id' => $id,
+                        'invoice_url' => "/Webmarket/admin/html/invoice.php?id={$id}",
+                    ]
+                );
+            }
 
-        // Hiển thị file hóa đơn
-        readfile($invoicePath);
+            // Generate new invoice
+            $generated = InvoiceGenerator::generateInvoice($id);
+
+            if (!$generated) {
+                throw new RuntimeException('Không thể tạo invoice');
+            }
+
+            self::log('generate_invoice', ['order_id' => $id]);
+
+            self::success(
+                message: 'Tạo invoice thành công',
+                data: [
+                    'order_id' => $id,
+                    'invoice_url' => "/Webmarket/admin/html/invoice.php?id={$id}",
+                ]
+            );
+
+        } catch (Throwable $e) {
+            error_log("Generate Invoice Error: " . $e->getMessage());
+            self::error($e->getMessage());
+        }
     }
 
     /**
-     * Tạo hóa đơn thủ công (nếu cần)
+     * Display invoice HTML
      */
-    private static function generateInvoice(): array
+    private static function displayInvoice(): never
     {
         $id = (int)($_GET['id'] ?? 0);
-        if (!$id) return ['ok'=>false, 'message'=>'Thiếu id'];
 
-        $success = InvoiceGenerator::generateInvoice($id);
-        return $success
-            ? ['ok'=>true, 'message'=>'Đã tạo hóa đơn thành công']
-            : ['ok'=>false, 'message'=>'Không thể tạo hóa đơn'];
+        if ($id <= 0) {
+            die('Invalid order ID');
+        }
+
+        try {
+            // Auto-generate if not exists
+            if (!InvoiceGenerator::invoiceExists($id)) {
+                InvoiceGenerator::generateInvoice($id);
+            }
+
+            // Render invoice
+            InvoiceGenerator::displayInvoice($id);
+            exit;
+
+        } catch (Throwable $e) {
+            error_log("Display Invoice Error: " . $e->getMessage());
+            die('Không thể hiển thị invoice: ' . htmlspecialchars($e->getMessage()));
+        }
     }
 
-    /* ============ LIST ============ */
-
     /**
-     * Lấy danh sách đơn cho UI hiện tại.
-     * Trả về: [$rows, $page, $totalPages]
+     * Fetch orders list with filters
+     *
+     * @return array{array<int, array<string, mixed>>, int, int}
      */
     private static function fetchList(): array
     {
-        $conn = self::getConnection();
+        $perPage = max(1, (int)($_GET['per_page'] ?? 20));
+        $page = max(1, (int)($_GET['page'] ?? 1));
+        $offset = ($page - 1) * $perPage;
 
-        $search     = trim((string)($_GET['search'] ?? ''));
-        $ym         = trim((string)($_GET['date'] ?? ''));
-        $statusText = trim((string)($_GET['status'] ?? 'All'));
-        $dateFrom   = trim((string)($_GET['date_from'] ?? ''));
-        $dateTo     = trim((string)($_GET['date_to'] ?? ''));
+        // Filters
+        $search = self::sanitize($_GET['search'] ?? '');
+        $status = $_GET['status'] ?? 'All';
+        $date = $_GET['date'] ?? '';
+        $dateFrom = $_GET['date_from'] ?? '';
+        $dateTo = $_GET['date_to'] ?? '';
 
+        [$where, $params] = self::buildWhereClause($search, $status, $date, $dateFrom, $dateTo);
+
+        // Count total
+        $total = (int)self::fetchOne(
+            "SELECT COUNT(*) 
+             FROM donhang dh
+             LEFT JOIN nguoidung nd ON dh.MaNguoiDung = nd.MaNguoiDung
+             {$where}",
+            $params
+        );
+
+        $totalPages = max(1, (int)ceil($total / $perPage));
+
+        // Fetch data
+        $orders = self::fetchAll(
+            "SELECT 
+                dh.MaDonHang AS MaDon,
+                nd.HoTen AS KhachHang,
+                dh.BanPhucVu AS Ban,
+                dh.NgayDat,
+                dh.TongTien,
+                dh.TrangThai
+             FROM donhang dh
+             LEFT JOIN nguoidung nd ON dh.MaNguoiDung = nd.MaNguoiDung
+             {$where}
+             ORDER BY dh.NgayDat DESC
+             LIMIT ? OFFSET ?",
+            [...$params, $perPage, $offset]
+        );
+
+        // Convert status to UI format
+        foreach ($orders as &$order) {
+            $order['TrangThai'] = self::DB_TO_UI[$order['TrangThai']] ?? $order['TrangThai'];
+        }
+
+        return [$orders, $page, $totalPages];
+    }
+
+    /**
+     * Build WHERE clause for filters
+     *
+     * @return array{string, array<int, mixed>}
+     */
+    private static function buildWhereClause(
+        string $search,
+        string $status,
+        string $date,
+        string $dateFrom,
+        string $dateTo
+    ): array {
         $where = [];
         $params = [];
-        $types = '';
 
         if ($search !== '') {
-            $where[]  = '(dh.MaDonHang LIKE ? OR nd.HoTen LIKE ? OR nd.Email LIKE ? OR nd.SoDienThoai LIKE ?)';
-            $kw = "%$search%";
-            array_push($params, $kw, $kw, $kw, $kw);
-            $types .= 'ssss';
+            $where[] = "(CAST(dh.MaDonHang AS CHAR) LIKE ? OR nd.HoTen LIKE ?)";
+            $searchParam = "%{$search}%";
+            $params[] = $searchParam;
+            $params[] = $searchParam;
         }
-        if ($ym !== '') {
-            $where[] = 'DATE_FORMAT(dh.NgayDat, "%Y-%m") = ?';
-            $params[] = $ym;
-            $types   .= 's';
+
+        if ($status !== 'All' && $status !== '') {
+            $dbStatus = self::UI_TO_DB[$status] ?? $status;
+            $where[] = "dh.TrangThai = ?";
+            $params[] = $dbStatus;
         }
-        if ($statusText !== '' && $statusText !== 'All') {
-            $dbStatus = self::UI2DB[$statusText] ?? null;
-            if ($dbStatus) {
-                $where[] = 'dh.TrangThai = ?';
-                $params[] = $dbStatus;
-                $types   .= 's';
-            }
+
+        if ($date !== '') {
+            $where[] = "DATE(dh.NgayDat) = ?";
+            $params[] = $date;
         }
+
         if ($dateFrom !== '') {
-            $where[] = 'DATE(dh.NgayDat) >= ?';
+            $where[] = "DATE(dh.NgayDat) >= ?";
             $params[] = $dateFrom;
-            $types   .= 's';
         }
+
         if ($dateTo !== '') {
-            $where[] = 'DATE(dh.NgayDat) <= ?';
+            $where[] = "DATE(dh.NgayDat) <= ?";
             $params[] = $dateTo;
-            $types   .= 's';
         }
 
-        $whereSql = $where ? ('WHERE '.implode(' AND ', $where)) : '';
+        $whereClause = !empty($where) ? 'WHERE ' . implode(' AND ', $where) : '';
 
-        $page  = max(1, (int)($_GET['page'] ?? 1));
-        $limit = 20;
-        $offset = ($page - 1) * $limit;
-
-        // Đếm tổng
-        $sqlCount = "SELECT COUNT(*) AS c FROM donhang dh 
-                     JOIN nguoidung nd ON nd.MaNguoiDung = dh.MaNguoiDung
-                     $whereSql";
-        $total = self::scalar($sqlCount, $types, $params);
-        $totalPages = (int)max(1, ceil($total / $limit));
-
-        // Lấy list
-        $sql = "
-            SELECT 
-              dh.MaDonHang,
-              nd.HoTen       AS customer_name,
-              nd.Hang        AS customer_rank,
-              dh.MaBan       AS ban_id,
-              dh.NgayDat,
-              dh.TongTien,
-              dh.TrangThai
-            FROM donhang dh
-            JOIN nguoidung nd ON nd.MaNguoiDung = dh.MaNguoiDung
-            $whereSql
-            ORDER BY dh.NgayDat DESC
-            LIMIT $limit OFFSET $offset
-        ";
-        $stmt = $conn->prepare($sql);
-        if ($types) { $stmt->bind_param($types, ...$params); }
-        $stmt->execute();
-        $rs = $stmt->get_result();
-
-        $rows = [];
-        while ($r = $rs->fetch_assoc()) {
-            $dbStatus = trim($r['TrangThai']);
-            $uiStatus = self::DB2UI[$dbStatus] ?? $dbStatus;
-
-            $rows[] = [
-                'MaDon'      => (string)$r['MaDonHang'],
-                'KhachHang'  => (string)($r['customer_name'] ?? 'Khách lẻ'),
-                'HangTV'     => (string)($r['customer_rank'] ?? 'Mới'),
-                'Ban'        => $r['ban_id'] ? ('Bàn '.$r['ban_id']) : '-',
-                'NgayDat'    => date('Y-m-d H:i', strtotime($r['NgayDat'] ?? 'now')),
-                'TongTien'   => (float)($r['TongTien'] ?? 0),
-                'TrangThai'  => $uiStatus,
-                'TrangThaiDB'=> $dbStatus,
-            ];
-        }
-        $stmt->close();
-
-        return [$rows, $page, $totalPages];
+        return [$whereClause, $params];
     }
 
-    /* ============ STATUS ACTIONS ============ */
-
-    // Trong method updateStatus - dòng 249
-    private static function updateStatus(string $to): array
+    /**
+     * Get order statistics
+     *
+     * @return array<string, mixed>
+     */
+    public static function getStatistics(): array
     {
-        $conn = self::getConnection();
-        $id = (int)($_GET['id'] ?? 0);
-        if (!$id) return ['ok'=>false,'message'=>'Thiếu id'];
-
-        $stmt = $conn->prepare("UPDATE donhang SET TrangThai=? WHERE MaDonHang=?");
-        $stmt->bind_param('si', $to, $id);
-        $ok = $stmt->execute();
-        $stmt->close();
-
-        // ✅ Tự động tạo hóa đơn khi hoàn thành
-        if ($ok && $to === 'CONFIRMED') {
-            InvoiceGenerator::generateInvoice($id);
-        }
-
-        return $ok ? ['ok'=>true,'message'=>'Đã cập nhật trạng thái'] : ['ok'=>false,'message'=>'Cập nhật thất bại'];
+        return [
+            'total_orders' => (int)self::fetchOne("SELECT COUNT(*) FROM donhang"),
+            'pending' => (int)self::fetchOne("SELECT COUNT(*) FROM donhang WHERE TrangThai = 'PLACED'"),
+            'processing' => (int)self::fetchOne("SELECT COUNT(*) FROM donhang WHERE TrangThai = 'CONFIRMED'"),
+            'completed' => (int)self::fetchOne("SELECT COUNT(*) FROM donhang WHERE TrangThai = 'DONE'"),
+            'cancelled' => (int)self::fetchOne("SELECT COUNT(*) FROM donhang WHERE TrangThai = 'CANCELLED'"),
+            'total_revenue' => (float)self::fetchOne(
+                "SELECT COALESCE(SUM(TongTien), 0) FROM donhang WHERE TrangThai = 'DONE'"
+            ),
+        ];
     }
-
-    private static function changeStatusByText(): array
-    {
-        $conn = self::getConnection();
-        $id = (int)($_GET['id'] ?? 0);
-        $statusText = trim((string)($_GET['status'] ?? ''));
-        if (!$id || $statusText==='') return ['ok'=>false,'message'=>'Thiếu tham số'];
-
-        $db = self::UI2DB[$statusText] ?? null;
-        if (!$db) return ['ok'=>false,'message'=>'Trạng thái không hợp lệ'];
-
-        $stmt = $conn->prepare("UPDATE donhang SET TrangThai=? WHERE MaDonHang=?");
-        $stmt->bind_param('si', $db, $id);
-        $ok = $stmt->execute();
-        $stmt->close();
-        return $ok ? ['ok'=>true,'message'=>'Đã cập nhật trạng thái'] : ['ok'=>false,'message'=>'Cập nhật thất bại'];
-    }
-
-    /* ============ Helpers ============ */
-
-    private static function scalar(string $sql, string $types='', array $params=[]): int
-    {
-        $conn = self::getConnection();
-        $stmt = $conn->prepare($sql);
-        if ($types) $stmt->bind_param($types, ...$params);
-        $stmt->execute();
-        $res = $stmt->get_result()->fetch_assoc();
-        $stmt->close();
-        return (int)($res['c'] ?? 0);
-    }
-
-    private static function json(array $payload): array
-    {
-        echo json_encode($payload, JSON_UNESCAPED_UNICODE);
-        return $payload;
-    }
-
 }

@@ -1,342 +1,495 @@
 <?php
-// admin/controller/Product_Controller.php
+declare(strict_types=1);
+
+/**
+ * Product_Controller.php
+ * Product management controller with PHP 8.4 features
+ *
+ * @package Admin\Controller
+ * @author AnhTona
+ * @version 2.0.0
+ * @since PHP 8.4
+ */
+
 require_once __DIR__ . '/../../model/database.php';
+require_once __DIR__ . '/BaseController.php';
 
-class Product_Controller
+final class Product_Controller extends BaseController
 {
-    public const UPLOAD_DIR = '/../../Webmarket/image';
-    public const UPLOAD_URL = '/../../Webmarket/image';
+    // Upload configuration
+    private const UPLOAD_DIR = __DIR__ . '/../../image';
+    private const UPLOAD_URL = '/Webmarket/image';
+    private const MAX_FILE_SIZE = 5_242_880; // 5MB
+    private const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 
+    /**
+     * Handle product requests
+     *
+     * @return array<string, mixed>
+     */
     public static function handle(): array
     {
-        $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
-        $action = $_GET['action'] ?? ($_POST['action'] ?? 'index');
+        self::requireAuth();
 
-        if ($method === 'POST' && in_array($action, ['create','update','save'], true)) {
-            return self::save();
+        $method = $_SERVER['REQUEST_METHOD'];
+        $action = $_GET['action'] ?? $_POST['action'] ?? 'index';
+
+        // AJAX requests
+        if (self::isAjax()) {
+            return match($action) {
+                'save', 'create', 'update' => self::save(),
+                'delete' => self::delete(),
+                'get' => self::getOne(),
+                default => self::error('Invalid action')
+            };
         }
-        if ($method === 'GET' && $action === 'delete') {
-            return self::delete();
+
+        // Regular request - list view
+        try {
+            return self::index();
+        } catch (Throwable $e) {
+            error_log("Products List Error: " . $e->getMessage());
+            return [
+                'product_list_paginated' => [],
+                'category_options' => [],
+                'page' => 1,
+                'total_pages' => 1,
+                'error' => 'Không thể tải danh sách sản phẩm',
+            ];
         }
-        if ($method === 'GET' && $action === 'get') {
-            return self::getOne();
-        }
-        return self::index();
     }
 
-    /* ===== DB Connect - OOP Version ===== */
-    private static function getConnection(): mysqli
-    {
-        $db = Database::getInstance();
-        return $db->getConnection();
-    }
-
-    /** Danh sách + tìm kiếm + lọc + phân trang */
+    /**
+     * List products with pagination and filters
+     *
+     * @return array<string, mixed>
+     */
     private static function index(): array
     {
-        $conn = self::getConnection();
+        $perPage = max(1, (int)($_GET['per_page'] ?? 20));
+        $page = max(1, (int)($_GET['page'] ?? 1));
+        $offset = ($page - 1) * $perPage;
 
-        $per_page = max(1, (int)($_GET['per_page'] ?? 5));
-        $page     = max(1, (int)($_GET['page']     ?? 1));
-        $search   = trim($_GET['search']   ?? '');
+        // Filters
+        $search = self::sanitize($_GET['search'] ?? '');
+        $category = $_GET['category'] ?? 'All';
+        $promo = $_GET['promo'] ?? '';
 
-        $cat = $_GET['category'] ?? 'All';
-        $promo    = trim($_GET['promo']    ?? '');
+        [$where, $params] = self::buildWhereClause($search, $category, $promo);
 
-        $params = [];
-        $wheres = [];
+        // Count total
+        $total = (int)self::fetchOne(
+            "SELECT COUNT(DISTINCT s.MaSanPham)
+             FROM sanpham s
+             LEFT JOIN sanpham_danhmuc sdm ON s.MaSanPham = sdm.MaSanPham
+             LEFT JOIN danhmucsanpham dm ON sdm.MaDanhMuc = dm.MaDanhMuc
+             LEFT JOIN sanpham_khuyenmai kmsp ON kmsp.MaSanPham = s.MaSanPham
+             LEFT JOIN khuyenmai km ON km.MaKhuyenMai = kmsp.MaKhuyenMai
+                 AND NOW() BETWEEN km.NgayBatDau AND km.NgayKetThuc
+             {$where}",
+            $params
+        );
 
-        if ($search !== '') {
-            $wheres[] = 's.TenSanPham LIKE ?';
-            $params[] = '%' . $search . '%';
-        }
+        $totalPages = max(1, (int)ceil($total / $perPage));
 
-        if ($cat !== '' && $cat !== 'All') {
-            if (ctype_digit((string)$cat)) {
-                $wheres[] = 'dm.MaDanhMuc = ?';
-                $params[] = (int)$cat;
-            } else {
-                $wheres[] = 'dm.TenDanhMuc = ?';
-                $params[] = $cat;
-            }
-        }
-
-        $promoJoin = "
-            LEFT JOIN sanpham_khuyenmai kmsp ON kmsp.MaSanPham = s.MaSanPham
-            LEFT JOIN khuyenmai km ON km.MaKhuyenMai = kmsp.MaKhuyenMai
-                AND NOW() BETWEEN km.NgayBatDau AND km.NgayKetThuc
-        ";
-
-        if ($promo === '1') {
-            $wheres[] = 'km.MaKhuyenMai IS NOT NULL';
-        } elseif ($promo === '0') {
-            $wheres[] = 'km.MaKhuyenMai IS NULL';
-        }
-
-        $whereSql = $wheres ? ('WHERE ' . implode(' AND ', $wheres)) : '';
-
-        $sql = "
-            SELECT COUNT(DISTINCT s.MaSanPham) AS total
-            FROM sanpham s
-            LEFT JOIN sanpham_danhmuc sdm ON s.MaSanPham = sdm.MaSanPham
-            LEFT JOIN danhmucsanpham   dm  ON sdm.MaDanhMuc = dm.MaDanhMuc
-            $promoJoin
-            $whereSql
-        ";
-        $total_products = (int) self::fetchValue($conn, $sql, $params);
-
-        $total_pages = max(1, (int)ceil($total_products / $per_page));
-        $page        = min($page, $total_pages);
-        $offset      = ($page - 1) * $per_page;
-
-        $sqlList = "
-            SELECT
+        // Fetch products
+        $products = self::fetchAll(
+            "SELECT 
                 s.MaSanPham,
                 s.TenSanPham,
                 s.Gia,
                 s.GiaCu,
-                s.HinhAnh,
                 s.SoLuongTon,
-                s.TrangThai,
-                s.NgayTao,
-                GREATEST(
-                    s.IsPromo,
-                    CASE WHEN EXISTS (
-                        SELECT 1
-                        FROM sanpham_khuyenmai skm
-                        JOIN khuyenmai k ON k.MaKhuyenMai = skm.MaKhuyenMai
-                        WHERE skm.MaSanPham = s.MaSanPham
-                          AND k.TrangThai = 1
-                          AND NOW() BETWEEN k.NgayBatDau AND k.NgayKetThuc
-                    ) THEN 1 ELSE 0 END
-                ) AS IsPromo,
-                s.Loai AS subCategory,
-                s.Popularity,
-                s.NewProduct,
-                COALESCE(GROUP_CONCAT(DISTINCT dm.TenDanhMuc SEPARATOR ', '), '-') AS TenDanhMuc
-            FROM sanpham s
-            LEFT JOIN sanpham_danhmuc sdm ON s.MaSanPham = sdm.MaSanPham
-            LEFT JOIN danhmucsanpham   dm  ON sdm.MaDanhMuc = dm.MaDanhMuc
-            $promoJoin
-            $whereSql
-            GROUP BY s.MaSanPham
-            ORDER BY s.NgayTao DESC, s.MaSanPham DESC
-            LIMIT ?, ?
-        ";
-
-        $listParams = array_merge($params, [$offset, $per_page]);
-        $product_list_paginated = self::fetchAll($conn, $sqlList, $listParams) ?? [];
-
-        foreach ($product_list_paginated as &$p) {
-            $p['DanhMuc'] = $p['TenDanhMuc'];
-        }
-
-        $category_options = self::fetchAll($conn, "SELECT TenDanhMuc FROM danhmucsanpham ORDER BY TenDanhMuc");
-
-        $notifications = [];
-        $notification_count = 0;
-
-        return compact(
-            'product_list_paginated','total_products','per_page','page','total_pages',
-            'notifications','notification_count',
-            'cat','promo','category_options'
+                s.HinhAnh,
+                dm.MaDanhMuc,
+                dm.TenDanhMuc,
+                IF(km.MaKhuyenMai IS NOT NULL, 1, 0) as IsPromo
+             FROM sanpham s
+             LEFT JOIN sanpham_danhmuc sdm ON s.MaSanPham = sdm.MaSanPham
+             LEFT JOIN danhmucsanpham dm ON sdm.MaDanhMuc = dm.MaDanhMuc
+             LEFT JOIN sanpham_khuyenmai kmsp ON kmsp.MaSanPham = s.MaSanPham
+             LEFT JOIN khuyenmai km ON km.MaKhuyenMai = kmsp.MaKhuyenMai
+                 AND NOW() BETWEEN km.NgayBatDau AND km.NgayKetThuc
+             {$where}
+             GROUP BY s.MaSanPham
+             ORDER BY s.MaSanPham DESC
+             LIMIT ? OFFSET ?",
+            [...$params, $perPage, $offset]
         );
+
+        // Get categories for filter dropdown
+        $categories = self::fetchAll(
+            "SELECT DISTINCT TenDanhMuc FROM danhmucsanpham ORDER BY TenDanhMuc"
+        );
+
+        return [
+            'product_list_paginated' => $products,
+            'category_options' => $categories,
+            'page' => $page,
+            'total_pages' => $totalPages,
+            'total_products' => $total,
+        ];
     }
 
-    /** Thêm/Sửa sản phẩm */
-    private static function save(): array
+    /**
+     * Build WHERE clause for filters
+     *
+     * @return array{string, array<int, mixed>}
+     */
+    private static function buildWhereClause(
+        string $search,
+        string $category,
+        string $promo
+    ): array {
+        $where = [];
+        $params = [];
+
+        if ($search !== '') {
+            $where[] = 's.TenSanPham LIKE ?';
+            $params[] = "%{$search}%";
+        }
+
+        if ($category !== '' && $category !== 'All') {
+            if (ctype_digit($category)) {
+                $where[] = 'dm.MaDanhMuc = ?';
+                $params[] = (int)$category;
+            } else {
+                $where[] = 'dm.TenDanhMuc = ?';
+                $params[] = $category;
+            }
+        }
+
+        if ($promo === '1') {
+            $where[] = 'km.MaKhuyenMai IS NOT NULL';
+        } elseif ($promo === '0') {
+            $where[] = 'km.MaKhuyenMai IS NULL';
+        }
+
+        $whereClause = !empty($where) ? 'WHERE ' . implode(' AND ', $where) : '';
+
+        return [$whereClause, $params];
+    }
+
+    /**
+     * Get single product
+     *
+     * @return never
+     */
+    private static function getOne(): never
     {
-        $conn = self::getConnection();
+        $id = (int)($_GET['id'] ?? 0);
 
-        $id       = isset($_POST['id']) && $_POST['id'] !== '' ? (int)$_POST['id'] : null;
-        $name     = trim($_POST['name'] ?? '');
-        $price    = (float)($_POST['price'] ?? 0);
-        $oldPrice = ($_POST['old-price'] ?? '') !== '' ? (float)$_POST['old-price'] : null;
-        $desc     = trim($_POST['description'] ?? '');
-        $qty      = (int)($_POST['quantity'] ?? 0);
-        $cat      = trim($_POST['category'] ?? '');
-        $promo    = isset($_POST['promo']) ? (int)$_POST['promo'] : 0;
-
-        if ($name === '' || $price < 0) {
-            return self::respond(false, 'Tên hoặc giá không hợp lệ!');
+        if (!$id) {
+            self::error('Thiếu ID sản phẩm');
         }
 
-        // Xử lý ảnh
-        $imgCurrent = trim($_POST['image_old'] ?? '');
-        $imgPath    = $imgCurrent;
+        $product = self::fetchRow(
+            "SELECT 
+                s.*,
+                dm.MaDanhMuc,
+                dm.TenDanhMuc,
+                IF(km.MaKhuyenMai IS NOT NULL, 1, 0) as IsPromo
+             FROM sanpham s
+             LEFT JOIN sanpham_danhmuc sdm ON s.MaSanPham = sdm.MaSanPham
+             LEFT JOIN danhmucsanpham dm ON sdm.MaDanhMuc = dm.MaDanhMuc
+             LEFT JOIN sanpham_khuyenmai kmsp ON kmsp.MaSanPham = s.MaSanPham
+             LEFT JOIN khuyenmai km ON km.MaKhuyenMai = kmsp.MaKhuyenMai
+                 AND NOW() BETWEEN km.NgayBatDau AND km.NgayKetThuc
+             WHERE s.MaSanPham = ?
+             LIMIT 1",
+            [$id]
+        );
 
-        if (isset($_FILES['image']) && is_array($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
-            $uploadDir = str_replace('\\', '/', realpath(__DIR__ . '/../../')) . '/image/';
-            if (!is_dir($uploadDir)) @mkdir($uploadDir, 0777, true);
-
-            $appBase = rtrim(
-                preg_replace('#/admin(?:/.*)?$#', '', str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME']))),
-                '/'
-            );
-            $uploadUrl = $appBase . '/image/';
-
-            $allow = ['jpg','jpeg','png','gif','webp'];
-            $ext   = strtolower(pathinfo($_FILES['image']['name'], PATHINFO_EXTENSION));
-            if (!in_array($ext, $allow, true)) {
-                return self::respond(false, 'Chỉ cho phép JPG/JPEG/PNG/GIF/WebP');
-            }
-
-            $base = pathinfo($_FILES['image']['name'], PATHINFO_FILENAME);
-            $slug = preg_replace('~[^a-z0-9._-]+~i', '-', $base);
-            if ($slug === '') $slug = 'image';
-
-            $file   = $slug . '.' . $ext;
-            $target = $uploadDir . $file;
-
-            if ($imgCurrent && strpos($imgCurrent, '/image/') !== false && basename($imgCurrent) !== $file) {
-                @unlink($uploadDir . basename($imgCurrent));
-            }
-
-            if (is_file($target)) @unlink($target);
-
-            if (!move_uploaded_file($_FILES['image']['tmp_name'], $target)) {
-                return self::respond(false, 'Không thể lưu ảnh mới');
-            }
-
-            $imgPath = $uploadUrl . $file;
+        if (!$product) {
+            self::error('Không tìm thấy sản phẩm');
         }
 
-        // Lưu sản phẩm
-        if ($id) {
-            $ok = self::exec(
-                $conn,
-                "UPDATE sanpham
-                 SET TenSanPham=?, Gia=?, GiaCu=?, MoTa=?, SoLuongTon=?, HinhAnh=?, IsPromo=?
-                 WHERE MaSanPham=?",
-                [$name, $price, $oldPrice, $desc, $qty, $imgPath, $promo, $id]
-            );
-            if (!$ok) return self::respond(false, 'Cập nhật sản phẩm thất bại!');
-        } else {
-            $ok = self::exec(
-                $conn,
-                "INSERT INTO sanpham (TenSanPham, Gia, GiaCu, MoTa, HinhAnh, SoLuongTon, TrangThai, IsPromo)
-                 VALUES (?,?,?,?,?,?,1,?)",
-                [$name, $price, $oldPrice, $desc, $imgPath, $qty, $promo]
-            );
-            if (!$ok) return self::respond(false, 'Thêm sản phẩm thất bại!');
-            $id = (int)$conn->insert_id;
-        }
-
-        // Gán danh mục
-        if ($cat !== '') {
-            $dmId = self::ensureCategory($conn, $cat);
-            if ($dmId) {
-                self::exec($conn, "DELETE FROM sanpham_danhmuc WHERE MaSanPham=?", [$id]);
-                self::exec($conn, "INSERT INTO sanpham_danhmuc (MaSanPham, MaDanhMuc) VALUES (?,?)", [$id, $dmId]);
-            }
-        }
-
-        return self::respond(true, 'Lưu sản phẩm thành công!', [
-            'id'      => $id,
-            'product' => [
-                'MaSanPham'  => $id,
-                'TenSanPham' => $name,
-                'Gia'        => $price,
-                'GiaCu'      => $oldPrice,
-                'MoTa'       => $desc,
-                'SoLuongTon' => $qty,
-                'IsPromo'    => $promo,
-                'HinhAnh'    => $imgPath,
-            ]
+        self::success('Lấy thông tin sản phẩm thành công', [
+            'product' => $product
         ]);
     }
 
-    /** Xoá sản phẩm */
-    private static function delete(): array
+    /**
+     * Save product (create or update)
+     *
+     * @return never
+     */
+    private static function save(): never
     {
-        $conn = self::getConnection();
-        $id = (int)($_GET['id'] ?? 0);
-        if ($id <= 0) return self::respond(false, 'Thiếu mã sản phẩm!');
-        $ok = self::exec($conn, "DELETE FROM sanpham WHERE MaSanPham=?", [$id]);
-        if (!$ok) return self::respond(false, 'Xoá thất bại!');
-        return self::respond(true, 'Đã xoá sản phẩm!');
-    }
+        $id = (int)($_POST['id'] ?? 0);
+        $name = self::sanitize($_POST['name'] ?? '');
+        $price = (float)($_POST['price'] ?? 0);
+        $oldPrice = !empty($_POST['old-price']) ? (float)$_POST['old-price'] : null;
+        $quantity = (int)($_POST['quantity'] ?? 0);
+        $category = self::sanitize($_POST['category'] ?? '');
+        $promo = (int)($_POST['promo'] ?? 0);
 
-    /** Đảm bảo có danh mục */
-    private static function ensureCategory(mysqli $conn, string $name): ?int
-    {
-        $name = trim($name);
-        $row = self::fetchOne($conn, "SELECT MaDanhMuc FROM danhmucsanpham WHERE TenDanhMuc=?", [$name]);
-        if ($row) return (int)$row['MaDanhMuc'];
-        if (!self::exec($conn, "INSERT INTO danhmucsanpham (TenDanhMuc) VALUES (?)", [$name])) return null;
-        return (int)$conn->insert_id;
-    }
-
-    /** Get one product */
-    private static function getOne(): array
-    {
-        $conn = self::getConnection();
-        $id = (int)($_GET['id'] ?? 0);
-        if ($id <= 0) return self::respond(false, 'Thiếu id');
-
-        $sql = "SELECT
-              s.MaSanPham,
-              s.TenSanPham,
-              s.Gia,
-              s.GiaCu,
-              s.SoLuongTon,
-              s.HinhAnh,
-              IFNULL(s.IsPromo, 0)           AS IsPromo,
-              IFNULL(dm.TenDanhMuc, '')       AS TenDanhMuc
-            FROM sanpham s
-            LEFT JOIN sanpham_danhmuc spdm ON spdm.MaSanPham = s.MaSanPham
-            LEFT JOIN danhmucsanpham dm          ON dm.MaDanhMuc   = spdm.MaDanhMuc
-            WHERE s.MaSanPham = ?";
-
-        $stmt = $conn->prepare($sql);
-        if (!$stmt) return self::respond(false, 'DB error');
-        $stmt->bind_param('i', $id);
-        $stmt->execute();
-        $res = $stmt->get_result()->fetch_assoc();
-
-        if (!$res) return self::respond(false, 'Không tìm thấy sản phẩm');
-
-        return self::respond(true, 'OK', ['product' => $res]);
-    }
-
-    /* ================== Helper DB ================== */
-    private static function fetchValue(mysqli $conn, string $sql, array $params=[]){
-        $r=self::fetchOne($conn,$sql,$params); return $r?array_values($r)[0]:null;
-    }
-    private static function fetchOne(mysqli $conn, string $sql, array $params=[]): ?array {
-        $rows=self::fetchAll($conn,$sql,$params); return $rows[0]??null;
-    }
-    private static function fetchAll(mysqli $conn, string $sql, array $params=[]): array {
-        $stmt=$conn->prepare($sql); if(!$stmt) return [];
-        if ($params) self::bindParams($stmt,$params);
-        $stmt->execute(); $res=$stmt->get_result(); $rows=$res?$res->fetch_all(MYSQLI_ASSOC):[];
-        $stmt->close(); return $rows;
-    }
-    private static function exec(mysqli $conn, string $sql, array $params=[]): bool {
-        $stmt=$conn->prepare($sql); if(!$stmt) return false;
-        if ($params) self::bindParams($stmt,$params);
-        $ok=$stmt->execute(); $stmt->close(); return (bool)$ok;
-    }
-    private static function bindParams(mysqli_stmt $stmt, array $params): void {
-        $types=''; $bind=[];
-        foreach($params as $p){ $types .= is_int($p)?'i':(is_float($p)?'d':'s'); $bind[]=$p; }
-        $stmt->bind_param($types, ...$bind);
-    }
-
-    /* ================== Response ================== */
-    private static function isAjax(): bool {
-        return (($_GET['ajax'] ?? '') === '1') ||
-            (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH'])==='xmlhttprequest');
-    }
-    private static function respond(bool $ok, string $message, array $extra=[]): array
-    {
-        $payload = array_merge(['ok'=>$ok,'message'=>$message], $extra);
-        if (self::isAjax()) {
-            header('Content-Type: application/json; charset=utf-8');
-            echo json_encode($payload, JSON_UNESCAPED_UNICODE);
-            exit;
+        // Validate
+        if ($name === '' || $price <= 0 || $category === '') {
+            self::error('Vui lòng điền đầy đủ thông tin sản phẩm');
         }
-        header('Location: products.php?'. ($ok ? 'success=' : 'error=') . urlencode($message));
-        exit;
+
+        try {
+            self::transaction(function() use ($id, $name, $price, $oldPrice, $quantity, $category, $promo) {
+                // Handle image upload
+                $imagePath = self::handleImageUpload($id);
+
+                if ($id > 0) {
+                    // Update existing product
+                    self::updateProduct($id, $name, $price, $oldPrice, $quantity, $imagePath);
+                } else {
+                    // Create new product
+                    $id = self::createProduct($name, $price, $oldPrice, $quantity, $imagePath);
+                }
+
+                // Update category relationship
+                self::updateCategory($id, $category);
+
+                // Update promotion status
+                if ($promo) {
+                    self::addPromotion($id);
+                } else {
+                    self::removePromotion($id);
+                }
+
+                self::log('save_product', [
+                    'product_id' => $id,
+                    'name' => $name,
+                    'action' => $id > 0 ? 'update' : 'create'
+                ]);
+            });
+
+            self::success(
+                $id > 0 ? 'Cập nhật sản phẩm thành công!' : 'Thêm sản phẩm thành công!',
+                ['product_id' => $id]
+            );
+
+        } catch (Throwable $e) {
+            error_log("Save Product Error: " . $e->getMessage());
+            self::error($e->getMessage());
+        }
+    }
+
+    /**
+     * Handle image upload
+     */
+    private static function handleImageUpload(int $productId): ?string
+    {
+        // No new file uploaded
+        if (!isset($_FILES['image']) || $_FILES['image']['error'] === UPLOAD_ERR_NO_FILE) {
+            // Keep old image if editing
+            return !empty($_POST['image_old']) ? $_POST['image_old'] : null;
+        }
+
+        $file = $_FILES['image'];
+
+        // Check for upload errors
+        if ($file['error'] !== UPLOAD_ERR_OK) {
+            throw new RuntimeException('Lỗi upload file: ' . $file['error']);
+        }
+
+        // Validate file size
+        if ($file['size'] > self::MAX_FILE_SIZE) {
+            throw new RuntimeException('File quá lớn (tối đa 5MB)');
+        }
+
+        // Validate file type
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        $mimeType = finfo_file($finfo, $file['tmp_name']);
+        finfo_close($finfo);
+
+        if (!in_array($mimeType, self::ALLOWED_TYPES, true)) {
+            throw new RuntimeException('Chỉ chấp nhận file ảnh (JPG, PNG, GIF, WEBP)');
+        }
+
+        // Create upload directory if not exists
+        if (!is_dir(self::UPLOAD_DIR)) {
+            mkdir(self::UPLOAD_DIR, 0755, recursive: true);
+        }
+
+        // Generate unique filename
+        $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
+        $filename = 'product_' . time() . '_' . uniqid() . '.' . $extension;
+        $destination = self::UPLOAD_DIR . '/' . $filename;
+
+        // Move uploaded file
+        if (!move_uploaded_file($file['tmp_name'], $destination)) {
+            throw new RuntimeException('Không thể lưu file');
+        }
+
+        // Delete old image if exists
+        if ($productId > 0 && !empty($_POST['image_old'])) {
+            $oldImage = self::UPLOAD_DIR . '/' . basename($_POST['image_old']);
+            if (file_exists($oldImage)) {
+                @unlink($oldImage);
+            }
+        }
+
+        return self::UPLOAD_URL . '/' . $filename;
+    }
+
+    /**
+     * Create new product
+     */
+    private static function createProduct(
+        string $name,
+        float $price,
+        ?float $oldPrice,
+        int $quantity,
+        ?string $image
+    ): int {
+        self::query(
+            "INSERT INTO sanpham (TenSanPham, Gia, GiaCu, SoLuongTon, HinhAnh, NgayTao)
+             VALUES (?, ?, ?, ?, ?, NOW())",
+            [$name, $price, $oldPrice, $quantity, $image]
+        );
+
+        return (int)self::db()->insert_id;
+    }
+
+    /**
+     * Update existing product
+     */
+    private static function updateProduct(
+        int $id,
+        string $name,
+        float $price,
+        ?float $oldPrice,
+        int $quantity,
+        ?string $image
+    ): void {
+        if ($image !== null) {
+            self::query(
+                "UPDATE sanpham 
+                 SET TenSanPham = ?, Gia = ?, GiaCu = ?, SoLuongTon = ?, HinhAnh = ?
+                 WHERE MaSanPham = ?",
+                [$name, $price, $oldPrice, $quantity, $image, $id]
+            );
+        } else {
+            self::query(
+                "UPDATE sanpham 
+                 SET TenSanPham = ?, Gia = ?, GiaCu = ?, SoLuongTon = ?
+                 WHERE MaSanPham = ?",
+                [$name, $price, $oldPrice, $quantity, $id]
+            );
+        }
+    }
+
+    /**
+     * Update product category
+     */
+    private static function updateCategory(int $productId, string $categoryName): void
+    {
+        // Get or create category
+        $categoryId = self::fetchOne(
+            "SELECT MaDanhMuc FROM danhmucsanpham WHERE TenDanhMuc = ? LIMIT 1",
+            [$categoryName]
+        );
+
+        if (!$categoryId) {
+            self::query(
+                "INSERT INTO danhmucsanpham (TenDanhMuc) VALUES (?)",
+                [$categoryName]
+            );
+            $categoryId = self::db()->insert_id;
+        }
+
+        // Delete old relationships
+        self::query(
+            "DELETE FROM sanpham_danhmuc WHERE MaSanPham = ?",
+            [$productId]
+        );
+
+        // Create new relationship
+        self::query(
+            "INSERT INTO sanpham_danhmuc (MaSanPham, MaDanhMuc) VALUES (?, ?)",
+            [$productId, $categoryId]
+        );
+    }
+
+    /**
+     * Add product to current promotion
+     */
+    private static function addPromotion(int $productId): void
+    {
+        // Get active promotion
+        $promoId = self::fetchOne(
+            "SELECT MaKhuyenMai FROM khuyenmai 
+             WHERE NOW() BETWEEN NgayBatDau AND NgayKetThuc 
+             LIMIT 1"
+        );
+
+        if ($promoId) {
+            self::query(
+                "INSERT IGNORE INTO sanpham_khuyenmai (MaSanPham, MaKhuyenMai) 
+                 VALUES (?, ?)",
+                [$productId, $promoId]
+            );
+        }
+    }
+
+    /**
+     * Remove product from promotions
+     */
+    private static function removePromotion(int $productId): void
+    {
+        self::query(
+            "DELETE FROM sanpham_khuyenmai WHERE MaSanPham = ?",
+            [$productId]
+        );
+    }
+
+    /**
+     * Delete product
+     *
+     * @return never
+     */
+    private static function delete(): never
+    {
+        $id = (int)($_GET['id'] ?? 0);
+
+        if (!$id) {
+            self::error('Thiếu ID sản phẩm');
+        }
+
+        try {
+            self::transaction(function() use ($id) {
+                // Get product info for logging
+                $product = self::fetchRow(
+                    "SELECT TenSanPham, HinhAnh FROM sanpham WHERE MaSanPham = ?",
+                    [$id]
+                );
+
+                if (!$product) {
+                    throw new RuntimeException('Không tìm thấy sản phẩm');
+                }
+
+                // Delete relationships
+                self::query("DELETE FROM sanpham_danhmuc WHERE MaSanPham = ?", [$id]);
+                self::query("DELETE FROM sanpham_khuyenmai WHERE MaSanPham = ?", [$id]);
+
+                // Delete product
+                self::query("DELETE FROM sanpham WHERE MaSanPham = ?", [$id]);
+
+                // Delete image file
+                if (!empty($product['HinhAnh'])) {
+                    $imagePath = self::UPLOAD_DIR . '/' . basename($product['HinhAnh']);
+                    if (file_exists($imagePath)) {
+                        @unlink($imagePath);
+                    }
+                }
+
+                self::log('delete_product', [
+                    'product_id' => $id,
+                    'name' => $product['TenSanPham']
+                ]);
+            });
+
+            self::success('Xóa sản phẩm thành công!');
+
+        } catch (Throwable $e) {
+            error_log("Delete Product Error: " . $e->getMessage());
+            self::error($e->getMessage());
+        }
     }
 }
