@@ -169,7 +169,7 @@ class AdminStaffController
             if ($checkEmail) {
                 return self::respond(false, 'Email "' . $email . '" đã được đăng ký. Vui lòng sử dụng email khác!');
             }
-p
+
             $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
             $sql = "INSERT INTO nguoidung (Username, MatKhau, HoTen, Email, SoDienThoai, VaiTro, TrangThai, NgayTao)
                 VALUES (?,?,?,?,?,?,?, NOW())";
