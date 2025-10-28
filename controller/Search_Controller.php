@@ -2,6 +2,8 @@
 declare(strict_types=1);
 header('Content-Type: application/json; charset=UTF-8');
 
+require_once __DIR__ . '/../model/Database.php';
+
 final class SearchController
 {
     /**
@@ -23,39 +25,44 @@ final class SearchController
      */
     private static function handleSuggestions(): void
     {
-        $conn = self::connect();
-        $keyword = trim((string)($_GET['keyword'] ?? ''));
+        try {
+            $db = Database::getInstance();
+            $keyword = trim((string)($_GET['keyword'] ?? ''));
 
-        if ($keyword === '') {
-            echo json_encode([], JSON_UNESCAPED_UNICODE);
+            if ($keyword === '') {
+                echo json_encode([], JSON_UNESCAPED_UNICODE);
+                exit;
+            }
+
+            $sql = "SELECT MaSanPham AS id, TenSanPham AS name 
+                    FROM sanpham 
+                    WHERE TrangThai = 1 AND TenSanPham LIKE ? 
+                    LIMIT 10";
+
+            $stmt = $db->prepare($sql);
+            if (!$stmt) {
+                throw new Exception('Lỗi prepare statement');
+            }
+
+            $likeKeyword = "%{$keyword}%";
+            $stmt->bind_param("s", $likeKeyword);
+            $stmt->execute();
+            $result = $stmt->get_result();
+
+            $products = [];
+            while ($row = $result->fetch_assoc()) {
+                $products[] = $row;
+            }
+
+            $stmt->close();
+            echo json_encode($products, JSON_UNESCAPED_UNICODE);
             exit;
-        }
 
-        $sql = "SELECT MaSanPham AS id, TenSanPham AS name 
-                FROM sanpham 
-                WHERE TrangThai = 1 AND TenSanPham LIKE ? 
-                LIMIT 10";
-
-        $stmt = $conn->prepare($sql);
-        if (!$stmt) {
+        } catch (Exception $e) {
             http_response_code(500);
-            echo json_encode(['error' => 'Lỗi prepare statement'], JSON_UNESCAPED_UNICODE);
+            echo json_encode(['error' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
             exit;
         }
-
-        $likeKeyword = "%{$keyword}%";
-        $stmt->bind_param("s", $likeKeyword);
-        $stmt->execute();
-        $result = $stmt->get_result();
-
-        $products = [];
-        while ($row = $result->fetch_assoc()) {
-            $products[] = $row;
-        }
-
-        $stmt->close();
-        echo json_encode($products, JSON_UNESCAPED_UNICODE);
-        exit;
     }
 
     /**
@@ -63,73 +70,56 @@ final class SearchController
      */
     private static function handleFullSearch(): void
     {
-        $conn = self::connect();
-        $keyword = trim((string)($_GET['keyword'] ?? ''));
+        try {
+            $db = Database::getInstance();
+            $keyword = trim((string)($_GET['keyword'] ?? ''));
 
-        if ($keyword === '') {
-            echo json_encode([], JSON_UNESCAPED_UNICODE);
+            if ($keyword === '') {
+                echo json_encode([], JSON_UNESCAPED_UNICODE);
+                exit;
+            }
+
+            $sql = "SELECT 
+                        s.MaSanPham,
+                        s.TenSanPham,
+                        s.Gia,
+                        s.GiaCu,
+                        s.HinhAnh,
+                        s.SoLuongTon,
+                        s.TrangThai,
+                        s.NgayTao,
+                        s.IsPromo,
+                        s.Loai AS subCategory,
+                        COALESCE(d.TenDanhMuc, '') AS TenDanhMuc
+                    FROM sanpham s
+                    LEFT JOIN danhmucsanpham d ON d.Loai = s.Loai
+                    WHERE s.TrangThai = 1 AND s.TenSanPham LIKE ?
+                    ORDER BY s.NgayTao DESC";
+
+            $stmt = $db->prepare($sql);
+            if (!$stmt) {
+                throw new Exception('Lỗi prepare statement');
+            }
+
+            $likeKeyword = "%{$keyword}%";
+            $stmt->bind_param("s", $likeKeyword);
+            $stmt->execute();
+            $result = $stmt->get_result();
+
+            $products = [];
+            while ($row = $result->fetch_assoc()) {
+                $products[] = self::normalizeForUI($row);
+            }
+
+            $stmt->close();
+            echo json_encode($products, JSON_UNESCAPED_UNICODE);
             exit;
-        }
 
-        $sql = "SELECT 
-                    s.MaSanPham,
-                    s.TenSanPham,
-                    s.Gia,
-                    s.GiaCu,
-                    s.HinhAnh,
-                    s.SoLuongTon,
-                    s.TrangThai,
-                    s.NgayTao,
-                    s.IsPromo,
-                    s.Loai AS subCategory,
-                    COALESCE(d.TenDanhMuc, '') AS TenDanhMuc
-                FROM sanpham s
-                LEFT JOIN danhmucsanpham d ON d.Loai = s.Loai
-                WHERE s.TrangThai = 1 AND s.TenSanPham LIKE ?
-                ORDER BY s.NgayTao DESC";
-
-        $stmt = $conn->prepare($sql);
-        if (!$stmt) {
+        } catch (Exception $e) {
             http_response_code(500);
-            echo json_encode(['error' => 'Lỗi prepare statement'], JSON_UNESCAPED_UNICODE);
+            echo json_encode(['error' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
             exit;
         }
-
-        $likeKeyword = "%{$keyword}%";
-        $stmt->bind_param("s", $likeKeyword);
-        $stmt->execute();
-        $result = $stmt->get_result();
-
-        $products = [];
-        while ($row = $result->fetch_assoc()) {
-            $products[] = self::normalizeForUI($row);
-        }
-
-        $stmt->close();
-        echo json_encode($products, JSON_UNESCAPED_UNICODE);
-        exit;
-    }
-
-    // ---- DB Connection ----
-    private static function connect(): mysqli
-    {
-        $dbPath = __DIR__ . '/../model/db.php';
-        if (!file_exists($dbPath)) {
-            http_response_code(500);
-            echo json_encode(['error' => "Không tìm thấy db.php"], JSON_UNESCAPED_UNICODE);
-            exit;
-        }
-
-        require $dbPath;
-
-        if (!isset($conn) || !($conn instanceof mysqli) || $conn->connect_error) {
-            http_response_code(500);
-            echo json_encode(['error' => 'Kết nối DB lỗi'], JSON_UNESCAPED_UNICODE);
-            exit;
-        }
-
-        $conn->set_charset('utf8mb4');
-        return $conn;
     }
 
     // ---- Normalize data for UI ----

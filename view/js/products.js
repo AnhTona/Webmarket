@@ -3,7 +3,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // ====== Cấu hình ======
     // Fix: hardcode đường dẫn đúng cho localhost
     const PRODUCTS_API = '/Webmarket/controller/Products_Filler_Controller.php';
-    
+
     console.log('API URL:', PRODUCTS_API); // DEBUG để kiểm tra
 
     // ====== DOM refs (giữ nguyên HTML cũ) ======
@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentFilter = initialCategory;
     let currentSort = 'default';
     let currentPage = 1;
-    const itemsPerPage = 12; // ĐỔI TỪ 50 THÀNH 16
+    const itemsPerPage = 12; // ĐỔI TỪ 50 THÀNH 12
     let productList = [];
 
     // ====== Utils (chuẩn hoá tiếng Việt / so sánh không dấu) ======
@@ -46,7 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ====== Chuẩn hoá item từ API ======
     function normalizeImage(src) {
-        if (!src) return '/image/sp1.jpg';
+        if (!src) return '/Webmarket/image/sp1.webp';
         return src.startsWith('/') ? src : '/' + src.replace(/^\/+/, '');
     }
     function inferMainCategory(sub, name) {
@@ -140,7 +140,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Xóa badge cũ nếu có
         const existingBadge = promoLink.querySelector('.category-discount-badge');
         if (existingBadge) existingBadge.remove();
-        
+
         // KHÔNG TẠO BADGE MỚI - chỉ để text "Khuyến Mãi"
     }
 
@@ -149,11 +149,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const formattedOldPrice = product.oldPrice ? product.oldPrice.toLocaleString('vi-VN') + ' VNĐ' : '';
         // BỎ dòng này nếu không muốn badge % trên card
         // const discount = calculateDiscount(product.oldPrice, product.price);
-        
+
         return `
       <div class="product-card" data-category="${product.category}" data-sub-category="${product.subCategory}">
         ${/* Bỏ badge giảm % */ ''}
-        <img src="${product.image}" alt="${product.name}" onerror="this.src='image/sp1.jpg';">
+        <img src="${product.image}" alt="${product.name}" onerror="this.src='/Webmarket/image/sp1.webp';">
         <h3>${product.name}</h3>
         <div class="product-info">
           ${product.oldPrice ? `<p class="old-price">${formattedOldPrice}</p>` : ''}
@@ -375,77 +375,4 @@ document.addEventListener('DOMContentLoaded', () => {
     // Init
     updateCartBadge();
     renderMiniCart();
-});
-
-// ====== Search UI (giữ nguyên logic cũ) ======
-document.addEventListener('DOMContentLoaded', () => {
-    const searchToggle = document.getElementById('search-toggle');
-    const searchBar = document.getElementById('search-bar');
-    const searchInput = document.getElementById('search-input');
-    const autocompleteResults = document.getElementById('autocomplete-results');
-    const searchClose = document.getElementById('search-close');
-    const searchForm = document.querySelector('.search-form');
-
-    let timeout;
-    if (!searchToggle || !searchBar || !searchInput || !autocompleteResults || !searchClose || !searchForm) return;
-
-    searchToggle.addEventListener('click', (e) => {
-        e.preventDefault();
-        searchBar.classList.toggle('active');
-        if (searchBar.classList.contains('active')) searchInput.focus();
-    });
-
-    searchClose.addEventListener('click', () => {
-        searchInput.value = '';
-        autocompleteResults.innerHTML = '';
-        autocompleteResults.style.display = 'none';
-        searchBar.classList.remove('active');
-    });
-
-    searchInput.addEventListener('input', () => {
-        clearTimeout(timeout);
-        timeout = setTimeout(() => {
-            const keyword = searchInput.value.trim();
-            if (keyword.length > 0) {
-                fetch(`search_suggestions.php?keyword=${encodeURIComponent(keyword)}`)
-                    .then(response => response.json())
-                    .then(data => {
-                        autocompleteResults.innerHTML = '';
-                        if (Array.isArray(data) && data.length > 0) {
-                            data.forEach(product => {
-                                const link = document.createElement('a');
-                                link.href = 'javascript:void(0);';
-                                link.textContent = product.name;
-                                link.dataset.id = product.id;
-                                autocompleteResults.appendChild(link);
-                            });
-                            autocompleteResults.style.display = 'block';
-                        } else {
-                            const noResult = document.createElement('div');
-                            noResult.classList.add('no-results');
-                            noResult.textContent = 'Không có kết quả';
-                            autocompleteResults.appendChild(noResult);
-                            autocompleteResults.style.display = 'block';
-                        }
-                    })
-                    .catch(error => console.error('Lỗi AJAX:', error));
-            } else {
-                autocompleteResults.innerHTML = '';
-                autocompleteResults.style.display = 'none';
-            }
-        }, 300);
-    });
-
-    searchForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const keyword = searchInput.value.trim();
-        if (keyword) window.location.href = `search_results.php?keyword=${encodeURIComponent(keyword)}`;
-    });
-
-    document.addEventListener('click', (e) => {
-        if (!searchBar.contains(e.target) && !searchToggle.contains(e.target)) {
-            searchBar.classList.remove('active');
-            autocompleteResults.style.display = 'none';
-        }
-    });
 });

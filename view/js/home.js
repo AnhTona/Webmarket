@@ -1,7 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
     // API endpoint
     const PRODUCTS_API = '/Webmarket/controller/Products_Filler_Controller.php';
-    const MAX_FEATURED = 7;   // ĐỔI: Giới hạn 7 sản phẩm nổi bật
+    const MAX_FEATURED = 7;   // Giới hạn 7 sản phẩm nổi bật
     const MAX_PROMO = 12;     // Tối đa 12 sản phẩm khuyến mãi
 
     // DOM Elements
@@ -100,13 +100,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ===== UTILS =====
     function normalizeImage(src) {
-        if (!src) return 'image/sp1.jpg';
-        
-        // GIỮ NGUYÊN LOGIC CỦA products.js - THÊM / ở đầu nếu chưa có
+        if (!src) return '/Webmarket/image/sp1.webp';
+
+        // GIỮ NGUYÊN LOGIC - THÊM / ở đầu nếu chưa có
         if (!src.startsWith('/')) {
             src = '/' + src.replace(/^\/+/, '');
         }
-        
+
         return src;
     }
 
@@ -123,7 +123,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         return `
             <div class="product-card">
-                <img src="${imgSrc}" alt="${product.name}" onerror="this.src='image/sp1.jpg';">
+                <img src="${imgSrc}" alt="${product.name}" onerror="this.src='/Webmarket/image/sp1.webp';">
                 <h3>${product.name}</h3>
                 <p class="price">${formattedPrice}</p>
                 <a href="#" class="btn-add" 
@@ -146,7 +146,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return `
             <div class="product-card promo-card">
                 ${discount ? `<div class="discount-badge">${discount}</div>` : ''}
-                <img src="${imgSrc}" alt="${product.name}" onerror="this.src='image/sp1.jpg';">
+                <img src="${imgSrc}" alt="${product.name}" onerror="this.src='/Webmarket/image/sp1.webp';">
                 <h3>${product.name}</h3>
                 <div class="product-info">
                     ${product.oldPrice ? `<p class="old-price">${formattedOldPrice}</p>` : ''}

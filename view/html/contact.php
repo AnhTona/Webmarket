@@ -1,5 +1,12 @@
 <?php
-include __DIR__ . '/../../model/db.php';
+require_once __DIR__ . '/../../model/database.php';
+
+try {
+    $db = Database::getInstance();
+    $conn = $db->getConnection();
+} catch (Exception $e) {
+    error_log("Database connection warning: " . $e->getMessage());
+}
 ?>
 <!DOCTYPE html>
 <html lang="vi">
@@ -7,9 +14,10 @@ include __DIR__ . '/../../model/db.php';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Liên Hệ - Trà & Bánh Trung Thu</title>
-    <link rel="stylesheet" href="../css/home.css">
-    <link rel="stylesheet" href="../css/contact.css">
-    <link rel="stylesheet" href="../css/search.css">
+    <!-- ✅ THÊM /Webmarket/ -->
+    <link rel="stylesheet" href="/Webmarket/view/css/home.css">
+    <link rel="stylesheet" href="/Webmarket/view/css/contact.css">
+    <link rel="stylesheet" href="/Webmarket/view/css/search.css">
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 </head>
@@ -18,7 +26,7 @@ include __DIR__ . '/../../model/db.php';
 <?php include 'header.php'; ?>
 
 <main>
-    <section class="contact-banner" style="background-image: url('../../image/banner.jpg');"></section>
+    <section class="contact-banner" style="background-image: url('/Webmarket/image/banner.webp');"></section>
 
     <section class="contact-info-section">
         <div class="info-item">
@@ -51,7 +59,7 @@ include __DIR__ . '/../../model/db.php';
         <h2>Vị Trí Cửa Hàng</h2>
         <div class="map-container">
             <iframe id="google-map-iframe"
-                    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3919.516584281781!2d106.69701467500336!3d10.771960289381734!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x31752f20d0f4d355%3A0x86b02a9b4d8d1e25!2zMTI5IE5ndXnhu4VuIFRo4buLIE1pbmggS2hhaSwgUGjGsOG7nW5nIELhur9uIFRow6BuaCwgUXXhuq1uIDEsIFRow6BuaCBwaOG7kSBI4buTIEPDrSBNaW5oLCBWaeG7h3QgTmFt!5e0!3m2!1svi!2s!4v1700000000000!5n0"
+                    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3919.516584281781!2d106.69701467500336!3d10.771960289381734!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x31752f20d0f4d355%3A0x86b02a9b4d8d1e25!2zMTI5IE5ndXnhu4VuIFRo4buLIE1pbmggS2hhaSwgUGjGsOG7nW5nIELhur9uIFRow6BuaCwgUXXhuq1uIDEsIFRow6BuaCBwaOG7kSBI4buTIEPDrSBNaW5oLCBWaeG7h3QgTmFt!5e0!3m2!1svi!2s!4v1700000000000!5m0"
                     allowfullscreen=""
                     loading="lazy"
                     referrerpolicy="no-referrer-when-downgrade"
@@ -63,7 +71,7 @@ include __DIR__ . '/../../model/db.php';
     <section class="contact-form-section">
         <div class="form-wrapper">
             <h2>Gửi Tin Nhắn Cho Chúng Tôi</h2>
-            <form action="submit_contact.php" method="POST" class="contact-form">
+            <form action="/Webmarket/controller/submit_contact.php" method="POST" class="contact-form">
                 <div class="form-row">
                     <div class="form-group">
                         <label for="name">Họ và Tên (*)</label>
@@ -104,8 +112,8 @@ include __DIR__ . '/../../model/db.php';
 
 <?php include 'footer.php'; ?>
 
-<script src="../js/cart.js"></script>
-<script src="../js/contact.js"></script>
-<script src="../js/search.js"></script>
+<script src="/Webmarket/view/js/cart.js"></script>
+<script src="/Webmarket/view/js/contact.js"></script>
+<script src="/Webmarket/view/js/search.js"></script>
 </body>
 </html>

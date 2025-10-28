@@ -67,7 +67,7 @@ document.addEventListener('DOMContentLoaded', function() {
             cart.forEach(item => {
                 const itemPrice = parseFloat(item.price) || 0;
                 const itemName = item.name || 'Sản phẩm không tên';
-                const itemImage = item.image || 'placeholder.png';
+                const itemImage = item.image || 'placeholder.webp';
                 const row = document.createElement('tr');
                 row.setAttribute('data-id', item.id);
                 row.innerHTML = `

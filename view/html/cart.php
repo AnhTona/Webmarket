@@ -1,7 +1,14 @@
 <?php
-include __DIR__ . '/../../model/db.php';
+require_once __DIR__ . '/../../model/database.php';
 session_start();
-$cart_items = [];
+
+try {
+    $db = Database::getInstance();
+    $conn = $db->getConnection();
+} catch (Exception $e) {
+    die("Lỗi kết nối database: " . $e->getMessage());
+}
+
 $cart_items = isset($_SESSION['cart']) ? $_SESSION['cart'] : [];
 ?>
 <!DOCTYPE html>
@@ -10,9 +17,10 @@ $cart_items = isset($_SESSION['cart']) ? $_SESSION['cart'] : [];
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Giỏ Hàng - Trà & Bánh Trung Thu</title>
-    <link rel="stylesheet" href="../css/home.css">
-    <link rel="stylesheet" href="../css/cart.css">
-    <link rel="stylesheet" href="../css/search.css">
+    <!-- ✅ THÊM /Webmarket/ -->
+    <link rel="stylesheet" href="/Webmarket/view/css/home.css">
+    <link rel="stylesheet" href="/Webmarket/view/css/cart.css">
+    <link rel="stylesheet" href="/Webmarket/view/css/search.css">
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 </head>
@@ -23,7 +31,7 @@ $cart_items = isset($_SESSION['cart']) ? $_SESSION['cart'] : [];
 <main class="cart-container">
     <div class="empty-cart" id="empty-cart" style="display: none;">
         <h1>Giỏ hàng đang trống, quay lại mua hàng?</h1>
-        <a href="products.php" class="btn-back">Quay trở lại mua hàng</a>
+        <a href="/Webmarket/products" class="btn-back">Quay trở lại mua hàng</a>
     </div>
     <div class="cart-content" id="cart-content" style="display: none;">
         <h1>Giỏ Hàng</h1>
@@ -40,8 +48,7 @@ $cart_items = isset($_SESSION['cart']) ? $_SESSION['cart'] : [];
                         <th style="width: 5%;"></th>
                     </tr>
                     </thead>
-                    <tbody id="cart-items">
-                    </tbody>
+                    <tbody id="cart-items"></tbody>
                 </table>
             </div>
             <div class="w-full lg:w-1/4">
@@ -59,7 +66,7 @@ $cart_items = isset($_SESSION['cart']) ? $_SESSION['cart'] : [];
                         <span>Tổng cộng</span>
                         <span id="grand-total">0 VNĐ</span>
                     </div>
-                    <a href="checkout.php" class="btn-checkout">Tiến hành thanh toán</a>
+                    <a href="/Webmarket/checkout" class="btn-checkout">Tiến hành thanh toán</a>
                 </div>
             </div>
         </div>
@@ -68,7 +75,7 @@ $cart_items = isset($_SESSION['cart']) ? $_SESSION['cart'] : [];
 
 <?php include 'footer.php'; ?>
 
-<script src="../js/cart.js"></script>
-<script src="../js/search.js"></script>
+<script src="/Webmarket/view/js/cart.js"></script>
+<script src="/Webmarket/view/js/search.js"></script>
 </body>
 </html>

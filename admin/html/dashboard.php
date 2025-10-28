@@ -1,17 +1,24 @@
 <?php
-session_start();
-if (!isset($_SESSION['user_id'])) {
-    header("Location: login.php");
-    exit();
+// Load config và require authentication
+require_once __DIR__ . '/config.php';
+requireAuth();
+
+// Load controller
+require_once __DIR__ . '/../controller/Dashboard_Controller.php';
+
+try {
+    $ctx = DashboardController::handle();
+    extract($ctx, EXTR_OVERWRITE);
+} catch (Exception $e) {
+    handleError($e->getMessage(), 'dashboard.php');
 }
 
-require_once __DIR__ . '/../controller/Dashboard_Controller.php';
-$ctx = DashboardController::handle();
-extract($ctx, EXTR_OVERWRITE);
+// Set page metadata
+$page_title = 'Trang Tổng Quan';
+$page_css = null; // Không cần CSS riêng
+$page_js = 'dashboard';
 
-// Không cần khai báo $notifications và $notification_count nữa
-// Vì template.php sẽ tự động load từ Notifications_Controller
-
+// Bắt đầu output buffering
 ob_start();
 ?>
 
@@ -70,17 +77,17 @@ ob_start();
         </div>
 
         <!-- SẢN PHẨM TỒN KHO -->
-        <div class="bg-white p-6 rounded-xl shadow-lg border-l-4 brand-bg hover:shadow-xl transition duration-300">
+        <div class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-gray-800 hover:shadow-xl transition duration-300">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm font-medium text-gray-100 uppercase tracking-wider">Sản Phẩm Tồn Kho</p>
-                    <p class="text-3xl font-extrabold text-white mt-1">
+                    <p class="text-sm font-medium text-gray-500 uppercase tracking-wider">Sản Phẩm Tồn Kho</p>
+                    <p class="text-3xl font-extrabold text-gray-900 mt-1">
                         <?= number_format($kpis['stock_total'], 0, ',', '.') ?>
                     </p>
                 </div>
-                <i class="fa-solid fa-warehouse text-3xl text-white p-3 bg-gray-600 rounded-full"></i>
+                <i class="fa-solid fa-warehouse text-3xl text-gray-600 p-3 bg-gray-100 rounded-full"></i>
             </div>
-            <p class="text-xs text-gray-200 mt-3">Đã kiểm tra vừa xong</p>
+            <p class="text-xs text-gray-500 mt-3">Đã kiểm tra vừa xong</p>
         </div>
     </div>
 
@@ -114,7 +121,7 @@ ob_start();
                                 <span class="text-xs text-gray-500">
                                 <?= date('d/m/Y H:i', strtotime($o['NgayDat'])) ?> •
                                 <span class="<?= $o['TrangThai'] === 'DONE' ? 'text-green-600' : 'text-blue-600' ?>">
-                                    <?= $o['TrangThai'] ?>
+                                    <?= htmlspecialchars($o['TrangThai']) ?>
                                 </span>
                             </span>
                             </div>
@@ -138,8 +145,7 @@ ob_start();
         </div>
     </div>
 
-    <script src="../js/dashboard.js"></script>
-
 <?php
 $content = ob_get_clean();
 include __DIR__ . '/template.php';
+?>

@@ -49,7 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
             productGrid.innerHTML += `
                 <div class="product-card">
                     ${discount ? `<div class="discount-badge">${discount}</div>` : ''}
-                    <img src="${product.image}" alt="${product.name}" onerror="this.src='/image/sp1.jpg';">
+                    <img src="${product.image}" alt="${product.name}" onerror="this.src='/Webmarket/image/sp1.webp';">
                     <h3>${product.name}</h3>
                     <div class="product-info">
                         ${product.oldPrice ? `<p class="old-price">${product.oldPrice.toLocaleString('vi-VN')} VNĐ</p>` : ''}

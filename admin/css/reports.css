@@ -1,0 +1,58 @@
+/* admin/css/reports.css */
+
+.tab-button {
+    padding: 1rem 1.5rem;
+    border-bottom: 2px solid transparent;
+    color: #6b7280;
+    font-weight: 500;
+    transition: all 0.3s;
+    cursor: pointer;
+    background: none;
+    border-top: none;
+    border-left: none;
+    border-right: none;
+}
+
+.tab-button:hover {
+    color: #8f2c24;
+    border-bottom-color: #fee;
+}
+
+.tab-button.active {
+    color: #8f2c24;
+    border-bottom-color: #8f2c24;
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+    animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+table {
+    border-collapse: collapse;
+}
+
+table thead {
+    background: #f9fafb;
+}
+
+table th {
+    font-weight: 600;
+    color: #374151;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+}
+
+table tbody tr:hover {
+    background-color: #f9fafb;
+}

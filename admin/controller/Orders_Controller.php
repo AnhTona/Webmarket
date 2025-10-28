@@ -248,7 +248,7 @@ class OrdersController
         $stmt->close();
 
         // ✅ Tự động tạo hóa đơn khi hoàn thành
-        if ($ok && $to === 'CONFIRMED') {
+        if ($ok && $to === 'DONE') {
             InvoiceGenerator::generateInvoice($id);
         }
 

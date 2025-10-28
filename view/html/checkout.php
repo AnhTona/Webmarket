@@ -1,7 +1,13 @@
 <?php
-// checkout.php
-include __DIR__ . '/../../model/db.php';
+require_once __DIR__ . '/../../model/database.php';
 session_start();
+
+try {
+    $db = Database::getInstance();
+    $conn = $db->getConnection();
+} catch (Exception $e) {
+    die("Lỗi kết nối database: " . $e->getMessage());
+}
 ?>
 <!DOCTYPE html>
 <html lang="vi">
@@ -9,9 +15,11 @@ session_start();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Thanh Toán Đơn Hàng - Hương Trà</title>
-    <link rel="stylesheet" href="../css/home.css">
-    <link rel="stylesheet" href="../css/checkout.css"> <link rel="stylesheet" href="../css/responsive.css">
-    <link rel="stylesheet" href="../css/search.css">
+    <!-- ✅ THÊM /Webmarket/ -->
+    <link rel="stylesheet" href="/Webmarket/view/css/home.css">
+    <link rel="stylesheet" href="/Webmarket/view/css/checkout.css">
+    <link rel="stylesheet" href="/Webmarket/view/css/responsive.css">
+    <link rel="stylesheet" href="/Webmarket/view/css/search.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600&display=swap" rel="stylesheet">
 </head>
@@ -20,14 +28,13 @@ session_start();
 
 <main class="checkout-container">
     <div class="breadcrumb">
-        <a href="home.php">Trang Chủ</a> / <a href="cart.php">Giỏ Hàng</a> / <span>Thanh Toán</span>
+        <a href="/Webmarket/home">Trang Chủ</a> / <a href="/Webmarket/cart">Giỏ Hàng</a> / <span>Thanh Toán</span>
     </div>
 
     <h1>HOÀN TẤT ĐƠN HÀNG</h1>
 
-    <form id="checkout-form" action="../../controller/process_order.php" method="POST" enctype="multipart/form-data">
+    <form id="checkout-form" action="/Webmarket/controller/process_order.php" method="POST" enctype="multipart/form-data">
         <div class="checkout-grid">
-
             <section class="checkout-details-column">
                 <h2>1. Thông tin Khách hàng & Bàn</h2>
 
@@ -71,11 +78,11 @@ session_start();
                     </label>
                     <label class="payment-option">
                         <input type="radio" name="payment_method" value="transfer" id="radio-transfer">
-                        <i class="fas fa-qrcode"></i> Chuyển khoản Thủ công(Bảo Trì)
+                        <i class="fas fa-qrcode"></i> Chuyển khoản Thủ công (Bảo Trì)
                     </label>
                     <label class="payment-option">
                         <input type="radio" name="payment_method" value="momo">
-                        <i class="fas fa-wallet"></i> Ví điện tử (Momo/ZaloPay)(Bảo Trì)
+                        <i class="fas fa-wallet"></i> Ví điện tử (Momo/ZaloPay) (Bảo Trì)
                     </label>
                 </div>
 
@@ -85,13 +92,13 @@ session_start();
                         <p><strong>Ngân hàng:</strong> Vietcombank</p>
                         <p><strong>Số tài khoản:</strong> 0071000888888</p>
                         <p><strong>Chủ tài khoản:</strong> CÔNG TY CP HƯƠNG TRÀ</p>
-                        <p class="transfer-note"><strong>Nội dung:</strong> TTDH-[SỐ ĐƠN HÀNG]-SĐT bạn</p>
-                        <img src="../../image/qr_code_vcb.png" alt="Mã QR Vietcombank" class="qr-code">
+                        <p class="transfer-note"><strong>Nội dung:</strong> TTDH-[Số ĐƠN HÀNG]-SĐT bạn</p>
+                        <img src="/Webmarket/image/qr_code_vcb.webp" alt="Mã QR Vietcombank" class="qr-code">
                     </div>
 
                     <div class="form-group upload-receipt-group">
                         <label for="receipt_file"><i class="fas fa-upload"></i> Upload Biên lai (Tùy chọn)</label>
-                        <input type="file" id="receipt_file" name="receipt_file" accept="../../image/*,application/pdf">
+                        <input type="file" id="receipt_file" name="receipt_file" accept="image/*,application/pdf">
                         <small class="hint">Giúp shop xác nhận thanh toán nhanh hơn.</small>
                     </div>
                 </div>
@@ -121,16 +128,16 @@ session_start();
                     Gửi Order & Thanh Toán <i class="fas fa-check-circle"></i>
                 </button>
 
-                <a href="cart.php" class="btn-back-to-cart">
+                <a href="/Webmarket/cart" class="btn-back-to-cart">
                     <i class="fas fa-angle-left"></i> Quay lại giỏ hàng
                 </a>
             </aside>
-
         </div>
     </form>
 </main>
 
 <?php include 'footer.php'; ?>
-<script src="../js/cart.js"></script>
-<script src="../js/checkout.js"></script> </body>
+<script src="/Webmarket/view/js/cart.js"></script>
+<script src="/Webmarket/view/js/checkout.js"></script>
+</body>
 </html>

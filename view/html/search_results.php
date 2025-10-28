@@ -8,9 +8,9 @@ $keyword = isset($_GET['keyword']) ? trim($_GET['keyword']) : '';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Kết Quả Tìm Kiếm - Trà & Bánh Trung Thu</title>
-    <link rel="stylesheet" href="../css/products.css">
-    <link rel="stylesheet" href="../css/home.css">
-    <link rel="stylesheet" href="../css/search.css">
+    <link rel="stylesheet" href="/Webmarket/view/css/products.css">
+    <link rel="stylesheet" href="/Webmarket/view/css/home.css">
+    <link rel="stylesheet" href="/Webmarket/view/css/search.css">
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
@@ -20,7 +20,7 @@ $keyword = isset($_GET['keyword']) ? trim($_GET['keyword']) : '';
 
 <main class="products-container">
     <div class="breadcrumb">
-        <a href="home.php">Trang Chủ</a> / <span>Kết Quả Tìm Kiếm: "<?php echo htmlspecialchars($keyword); ?>"</span>
+        <a href="/Webmarket/home">Trang Chủ</a> / <span>Kết Quả Tìm Kiếm: "<?php echo htmlspecialchars($keyword); ?>"</span>
     </div>
     <div class="content-wrapper">
         <div class="main-content">
@@ -48,11 +48,11 @@ $keyword = isset($_GET['keyword']) ? trim($_GET['keyword']) : '';
             <span id="minicart-item-count">0 sản phẩm</span>
             <span id="minicart-total-price">0 VND</span>
         </div>
-        <a href="cart.php" class="btn-view-cart">Xem giỏ hàng</a>
+        <a href="/Webmarket/cart" class="btn-view-cart">Xem giỏ hàng</a>
     </div>
 </div>
 
-<script src="../js/search_results.js"></script>
-<script src="../js/search.js"></script>
+<script src="/Webmarket/view/js/search_results.js"></script>
+<script src="/Webmarket/view/js/search.js"></script>
 </body>
 </html>

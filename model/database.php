@@ -82,11 +82,4 @@ class Database {
         return $this->conn->insert_id;
     }
 }
-
-// Cách sử dụng:
-// $db = Database::getInstance();
-// $conn = $db->getConnection();
-//
-// Hoặc trực tiếp:
-// $result = Database::getInstance()->query("SELECT * FROM products");
 ?>

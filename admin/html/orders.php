@@ -15,8 +15,8 @@ ob_start();
     <!-- Filter Bar -->
     <div class="filter-bar">
         <div class="search-group">
-            <input type="text" id="search-input" placeholder="Tìm theo khách hàng...">
-            <button id="btn-search" class="btn btn-search"><i class="fas fa-search"></i>Tìm</button>
+            <input type="text" id="search-input" placeholder="Tìm theo mã đơn hoặc khách hàng...">
+            <button id="btn-search" class="btn btn-search"><i class="fas fa-search"></i></button>
         </div>
         <div class="filter-group">
             <label for="filter-date">Ngày:</label>
@@ -30,17 +30,6 @@ ob_start();
                 <option value="Đang chuẩn bị">Đang chuẩn bị</option>
                 <option value="Hoàn thành">Hoàn thành</option>
             </select>
-        </div>
-        <button id="btn-toggle-advanced-filter" class="btn-toggle-advanced"><i class="fas fa-sliders-h"></i> Bộ lọc nâng cao</button>
-        <div id="advanced-filters" class="advanced-filters hidden">
-            <div class="filter-group">
-                <label for="filter-date-from">Từ ngày:</label>
-                <input type="date" id="filter-date-from">
-            </div>
-            <div class="filter-group">
-                <label for="filter-date-to">Đến ngày:</label>
-                <input type="date" id="filter-date-to">
-            </div>
         </div>
     </div>
 
@@ -70,7 +59,7 @@ ob_start();
                     <td><?php echo number_format($order['TongTien'], 0, ',', '.') . 'đ'; ?></td>
                     <td><span class="status-badge status-<?php echo strtolower(str_replace(' ', '-', $status)); ?>"><?php echo htmlspecialchars($status); ?></span></td>
                     <td>
-                        <button class="btn-action view-order" title="Xem chi tiết"><i class="fas fa-eye"></i> Xem</button>
+                        <button class="btn-action view-order" title="Xem chi tiết"><i class="fas fa-eye"></i data-id="<?= (int)$row['MaDon'] ?>"> Xem</button>
                         <?php if ($status === 'Chờ xác nhận'): ?>
                             <button class="btn-action confirm-order" title="Xác nhận"><i class="fas fa-check"></i> Xác nhận</button>
                             <button class="btn-action cancel-order" title="Hủy"><i class="fas fa-times"></i> Hủy</button>
@@ -84,33 +73,8 @@ ob_start();
             </tbody>
         </table>
         <div id="no-results-message" style="display: none; text-align: center; padding: 20px;">Không tìm thấy đơn hàng nào phù hợp.</div>
-    </div>
-
-    <!-- Report Buttons -->
-    <div class="mt-4 flex gap-4">
-        <button id="btn-export-csv" class="py-2 px-4 brand-bg text-white rounded-lg brand-bg-hover transition duration-200 text-sm font-medium">
-            <i class="fas fa-file-csv"></i> Xuất CSV
-        </button>
-        <button id="btn-export-excel" class="py-2 px-4 brand-bg text-white rounded-lg brand-bg-hover transition duration-200 text-sm font-medium">
-            <i class="fas fa-file-excel"></i> Xuất Excel
-        </button>
-        <button id="btn-export-pdf" class="py-2 px-4 brand-bg text-white rounded-lg brand-bg-hover transition duration-200 text-sm font-medium">
-            <i class="fas fa-file-pdf"></i> Xuất PDF
-        </button>
-    </div>
-
-    <!-- Order Detail Modal -->
-    <div id="order-detail-modal" class="modal">
-        <div class="modal-content">
-            <span class="close-button">&times;</span>
-            <h2 id="modal-title">CHI TIẾT ĐƠN HÀNG</h2>
-            <div id="order-details" class="mt-4">
-                <!-- Chi tiết đơn hàng sẽ được điền bởi JS -->
-            </div>
-            <div class="modal-actions">
-                <button type="button" class="btn btn-secondary close-button"><i class="fas fa-times"></i> Đóng</button>
-            </div>
-        </div>
+        <div id="pagination" class="pagination"></div>
+        <div id="page-info" class="page-info"></div>
     </div>
 
     <!-- CSS cho trang Orders -->

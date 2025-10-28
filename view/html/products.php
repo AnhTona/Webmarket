@@ -4,19 +4,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sản Phẩm - Trà & Bánh Trung Thu</title>
-    <link rel="stylesheet" href="../css/products.css">
-    <link rel="stylesheet" href="../css/home.css">
-    <link rel="stylesheet" href="../css/search.css">
+    <link rel="stylesheet" href="/Webmarket/view/css/products.css">
+    <link rel="stylesheet" href="/Webmarket/view/css/home.css">
+    <link rel="stylesheet" href="/Webmarket/view/css/search.css">
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
 
+<!-- ✅ SỬA: Bỏ /Webmarket/ trong include vì đã ở trong thư mục html -->
 <?php include 'header.php'; ?>
 
 <main class="products-container">
     <div class="breadcrumb">
-        <a href="home.php">Trang Chủ</a> / <a href="products.php">Sản Phẩm</a><span id="breadcrumb-category"></span>
+        <a href="/Webmarket/home">Trang Chủ</a> / <a href="/Webmarket/products">Sản Phẩm</a><span id="breadcrumb-category"></span>
     </div>
     <div class="content-wrapper">
         <div class="sidebar-left">
@@ -89,11 +90,12 @@
             <span id="minicart-item-count">0 sản phẩm</span>
             <span id="minicart-total-price">0 VND</span>
         </div>
-        <a href="cart.php" class="btn-view-cart">Xem giỏ hàng</a>
+        <a href="/Webmarket/cart" class="btn-view-cart">Xem giỏ hàng</a>
     </div>
 </div>
 
-<script src="../js/products.js"></script>
-<script src="../js/search.js"></script>
+<!-- ✅ SỬA: Thêm dấu " đóng đúng -->
+<script src="/Webmarket/view/js/products.js"></script>
+<script src="/Webmarket/view/js/search.js"></script>
 </body>
 </html>

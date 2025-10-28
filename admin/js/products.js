@@ -16,9 +16,6 @@ class ProductsPage {
         this.productForm = document.getElementById('product-form');
         this.modalCloseBtns = this.modal ? this.modal.querySelectorAll('.close-button') : [];
 
-        this.sidebar = document.getElementById('sidebar');
-        this.menuToggle = document.getElementById('menu-toggle');
-
         this.imgInput = document.getElementById('image');
         this.imgPreview = document.getElementById('image-preview');
         this.imgOld = document.getElementById('image-old');
@@ -37,9 +34,6 @@ class ProductsPage {
 
     // ===== UI toggles =====
     initUI() {
-        this.menuToggle?.addEventListener('click', () => {
-            this.sidebar?.classList.toggle('-translate-x-full');
-        });
 
         // Preview ảnh khi chọn file mới
         this.imgInput?.addEventListener('change', (e) => {
@@ -53,7 +47,6 @@ class ProductsPage {
             }
         });
 
-        // Cancel trong modal
         document.getElementById('btn-cancel')?.addEventListener('click', (e) => {
             e.preventDefault();
             this.closeModal();

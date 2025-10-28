@@ -3,47 +3,36 @@
 class OrdersPage {
     constructor() {
         // ===== Elements =====
-        this.sidebar = document.getElementById('sidebar');
-        this.menuToggle = document.getElementById('menu-toggle');
-        this.notificationBell = document.getElementById('notification-bell');
-        this.notificationDropdown = document.getElementById('notification-dropdown');
-
-        this.searchInput = document.getElementById('search-input');
-        this.btnSearch = document.getElementById('btn-search');
-        this.filterDate = document.getElementById('filter-date');
-        this.filterStatus = document.getElementById('filter-status');
-        this.btnToggleAdvanced = document.getElementById('btn-toggle-advanced-filter');
-        this.advancedFilters = document.getElementById('advanced-filters');
-        this.filterDateFrom = document.getElementById('filter-date-from');
-        this.filterDateTo = document.getElementById('filter-date-to');
+        this.searchInput   = document.getElementById('search-input');
+        this.btnSearch     = document.getElementById('btn-search');
+        this.filterDate    = document.getElementById('filter-date');
+        this.filterStatus  = document.getElementById('filter-status');
 
         this.orderListTable = document.getElementById('order-list-table');
-        this.noResultsMsg = document.getElementById('no-results-message');
-        this.modal = document.getElementById('order-detail-modal');
+        this.noResultsMsg   = document.getElementById('no-results-message');
+        this.modal          = document.getElementById('order-detail-modal');
 
-        // ===== State =====
+        // ===== State (khởi tạo 1 lần, KHÔNG ghi đè sau đó) =====
+        const data = Array.isArray(window.ordersData) ? window.ordersData : [];
         this.state = {
-            orders: Array.isArray(window.ordersData) ? window.ordersData : [],
+            orders: data,          // all rows
+            filtered: data,        // rows sau khi lọc
+            pageSize: 10,          // 10 đơn/trang
+            currentPage: 1,
+            totalPages: 1,
         };
 
         this.fmt = new Intl.NumberFormat('vi-VN');
 
-        // init
+        // ===== Init =====
         this.initUI();
         this.bindFilters();
         this.bindTableActions();
-        this.renderRows(this.state.orders);
+        this.paginateAndRender();
     }
 
+
     initUI() {
-        this.menuToggle?.addEventListener('click', () => {
-            this.sidebar?.classList.toggle('-translate-x-full');
-        });
-
-        this.notificationBell?.addEventListener('click', () => {
-            this.notificationDropdown?.classList.toggle('active');
-        });
-
         this.btnToggleAdvanced?.addEventListener('click', () => {
             this.advancedFilters?.classList.toggle('hidden');
         });
@@ -61,6 +50,54 @@ class OrdersPage {
                 this.closeModal();
             }
         });
+    }
+    paginateAndRender() {
+        const { filtered, pageSize, currentPage } = this.state;
+        const total = filtered.length;
+        const start = (currentPage - 1) * pageSize;
+        const pageRows = filtered.slice(start, start + pageSize);
+        this.renderRows(pageRows);
+        this.renderPagination(total);
+    }
+
+    renderPagination(total) {
+        const wrap = document.getElementById('pagination');
+        const info = document.getElementById('page-info');
+        if (!wrap) return;
+
+        const pages = Math.max(1, Math.ceil(total / this.state.pageSize));
+        this.state.totalPages = pages;
+        const cur = this.state.currentPage;
+
+        const mkBtn = (label, page, disabled = false, active = false) => {
+            const b = document.createElement('button');
+            b.className = 'page-btn' + (active ? ' active' : '');
+            b.textContent = label;
+            b.disabled = disabled;
+            b.addEventListener('click', () => { this.state.currentPage = page; this.paginateAndRender(); });
+            return b;
+        };
+
+        wrap.innerHTML = '';
+        // Prev
+        wrap.appendChild(mkBtn('‹', Math.max(1, cur - 1), cur === 1));
+
+        // Số trang (tối đa 7 nút quanh trang hiện tại)
+        const start = Math.max(1, cur - 3);
+        const end = Math.min(pages, cur + 3);
+        for (let i = start; i <= end; i++) {
+            wrap.appendChild(mkBtn(String(i), i, false, i === cur));
+        }
+
+        // Next
+        wrap.appendChild(mkBtn('›', Math.min(pages, cur + 1), cur === pages));
+
+        // Info
+        if (info) {
+            const from = total ? ( (cur - 1) * this.state.pageSize + 1 ) : 0;
+            const to = Math.min(total, cur * this.state.pageSize);
+            info.textContent = `Hiển thị ${from}–${to} / ${total} đơn`;
+        }
     }
 
     closeModal() {
@@ -116,34 +153,44 @@ class OrdersPage {
     }
 
     applyFilter() {
-        const kw = (this.searchInput?.value || '').toLowerCase().trim();
-        const ym = this.filterDate?.value || '';
-        const st = this.filterStatus?.value || 'All';
-        const dFrom = this.filterDateFrom?.value || '';
-        const dTo = this.filterDateTo?.value || '';
+        const raw = (this.searchInput?.value || '').trim();
+        const kw = raw.toLowerCase().replace(/^#/, '');    // bỏ # nếu có
+        const kwDigits = kw.replace(/\D/g, '');            // phần số để so với mã đơn
+
+        const day  = (this.filterDate?.value || '').trim();      // YYYY-MM-DD
+        const st   = (this.filterStatus?.value || 'All').trim();
+        const dFrom = (this.filterDateFrom?.value || '').trim();
+        const dTo   = (this.filterDateTo?.value || '').trim();
 
         const okStatus = (txt) => st === 'All' || (txt || '').toLowerCase() === st.toLowerCase();
 
         const filtered = this.state.orders.filter((o) => {
-            const hitKw =
-                !kw ||
-                (o.MaDon || '').toLowerCase().includes(kw) ||
-                (o.KhachHang || '').toLowerCase().includes(kw);
-            const hitYm = !ym || (o.NgayDat || '').slice(0, 7) === ym;
-            const hitSt = okStatus(o.TrangThai);
-            let hitFrom = true,
-                hitTo = true;
-            if (dFrom) hitFrom = (o.NgayDat || '').slice(0, 10) >= dFrom;
-            if (dTo) hitTo = (o.NgayDat || '').slice(0, 10) <= dTo;
-            return hitKw && hitYm && hitSt && hitFrom && hitTo;
+            const idStr   = String(o.MaDon ?? '').toLowerCase();
+            const nameStr = String(o.KhachHang ?? '').toLowerCase();
+            const dateStr = String(o.NgayDat ?? '').slice(0, 10);  // YYYY-MM-DD
+
+            // Tìm đồng thời: mã đơn (theo số) HOẶC tên khách hàng (theo chữ)
+            const hitKw = !kw
+                ? true
+                : (kwDigits && idStr.includes(kwDigits)) || nameStr.includes(kw);
+
+            const hitDay  = !day || dateStr === day;
+            const hitFrom = !dFrom || dateStr >= dFrom;
+            const hitTo   = !dTo   || dateStr <= dTo;
+            const hitSt   = okStatus(o.TrangThai);
+
+            return hitKw && hitDay && hitFrom && hitTo && hitSt;
         });
 
-        this.renderRows(filtered);
+        this.state.filtered = filtered;
+        this.state.currentPage = 1;     // về trang đầu mỗi lần lọc
+        this.paginateAndRender();
     }
 
     bindFilters() {
         const run = (e) => {
             if (e?.preventDefault) e.preventDefault();
+            this.state.currentPage = 1;   // quan trọng!
             this.applyFilter();
         };
 
@@ -169,12 +216,12 @@ class OrdersPage {
 
     async fetchOrderDetails(id) {
         try {
-            console.log('Fetching order details for ID:', id); // Debug log
+            console.log('Fetching order details for ID:', id);
             const res = await fetch(
                 `orders.php?ajax=1&action=view&id=${encodeURIComponent(id)}`
             );
             const data = await res.json();
-            console.log('Received data:', data); // Debug log
+            console.log('Received data:', data);
             return data.ok ? data : null;
         } catch (e) {
             console.error('Error fetching order details:', e);
@@ -183,7 +230,7 @@ class OrdersPage {
     }
 
     openDetailModal(data) {
-        console.log('Opening modal with data:', data); // Debug log
+        console.log('Opening modal with data:', data);
 
         if (!data) {
             alert('Không thể tải chi tiết đơn hàng');
@@ -283,7 +330,7 @@ class OrdersPage {
         this.modal.style.display = 'flex';
         this.modal.classList.add('active');
 
-        console.log('Modal opened successfully'); // Debug log
+        console.log('Modal opened successfully');
     }
 
     getPaymentMethodName(method) {
@@ -309,49 +356,48 @@ class OrdersPage {
 
             console.log('Button clicked:', btn.className, 'ID:', id);
 
-            if (btn.classList.contains('view-detail') || btn.classList.contains('view-order')) {
-                console.log('View button clicked');
-                // Gọi API để lấy URL hóa đơn
-                try {
-                    const res = await fetch(
-                        `orders.php?ajax=1&action=view&id=${encodeURIComponent(id)}`
-                    );
-                    const data = await res.json();
-
-                    if (data.ok && data.invoice_url) {
-                        // Mở hóa đơn trong tab mới
-                        window.open(data.invoice_url, '_blank');
-                    } else {
-                        alert(data.message || 'Không thể tải hóa đơn');
-                    }
-                } catch (e) {
-                    console.error('Error loading invoice:', e);
-                    alert('Lỗi khi tải hóa đơn');
-                }
+            if (btn.classList.contains('view-detail') || btn.classList.contains('view-order') || btn.classList.contains('btn-view')) {
+                const base = location.pathname.replace(/\/[^\/]*$/, '/');
+                window.open(base + 'invoice.php?id=' + encodeURIComponent(id), '_blank');
                 return;
             }
 
             if (btn.classList.contains('confirm-order')) {
                 if (!confirm('Xác nhận đơn hàng này?')) return;
                 const j = await this.api('confirm', id);
-                alert(j.message || (j.ok ? 'Đã xác nhận' : 'Lỗi'));
-                if (j.ok) location.reload();
+                if (j.ok) {
+                    alert(j.message || 'Đã xác nhận');
+                    // Tự động reload trang
+                    location.reload();
+                } else {
+                    alert(j.message || 'Lỗi khi xác nhận đơn hàng');
+                }
                 return;
             }
 
             if (btn.classList.contains('complete-order')) {
                 if (!confirm('Đánh dấu Hoàn thành đơn này?')) return;
                 const j = await this.api('complete', id);
-                alert(j.message || (j.ok ? 'Đã hoàn thành' : 'Lỗi'));
-                if (j.ok) location.reload();
+                if (j.ok) {
+                    alert(j.message || 'Đã hoàn thành');
+                    // Tự động reload trang
+                    location.reload();
+                } else {
+                    alert(j.message || 'Lỗi khi hoàn thành đơn hàng');
+                }
                 return;
             }
 
             if (btn.classList.contains('cancel-order')) {
                 if (!confirm('Hủy đơn hàng này?')) return;
                 const j = await this.api('cancel', id);
-                alert(j.message || (j.ok ? 'Đã hủy' : 'Lỗi'));
-                if (j.ok) location.reload();
+                if (j.ok) {
+                    alert(j.message || 'Đã hủy');
+                    // Tự động reload trang
+                    location.reload();
+                } else {
+                    alert(j.message || 'Lỗi khi hủy đơn hàng');
+                }
                 return;
             }
         });
@@ -360,5 +406,5 @@ class OrdersPage {
 
 document.addEventListener('DOMContentLoaded', () => {
     window.__ordersPage = new OrdersPage();
-    console.log('OrdersPage initialized'); // Debug log
+    console.log('OrdersPage initialized');
 });

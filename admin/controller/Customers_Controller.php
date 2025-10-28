@@ -8,6 +8,7 @@ class CustomersController
     private const RANK_WINDOW_DAYS = 365;      // 12 tháng gần nhất
     private const RANK_SILVER_MIN  = 2_000_000;
     private const RANK_GOLD_MIN    = 5_000_000;
+    private const PER_PAGE         = 10;       // 10 khách hàng mỗi trang
 
     // Trạng thái đơn được tính doanh số
     private static function paidStatuses(): array {
@@ -29,14 +30,8 @@ class CustomersController
         $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
         $action = $_GET['action'] ?? ($_POST['action'] ?? 'index');
 
-        if ($method === 'POST' && in_array($action, ['save','create','update'], true)) {
-            return self::save($conn);
-        }
-        if ($method === 'GET' && $action === 'delete') {
+        if ($action === 'delete') {
             return self::delete($conn);
-        }
-        if ($action === 'toggle') {
-            return self::toggle($conn);
         }
         if ($action === 'recompute_all') {
             return self::recomputeAll($conn);
@@ -55,17 +50,16 @@ class CustomersController
     /* ===== Danh sách + Filter ===== */
     private static function index(mysqli $conn): array
     {
-        $per_page = max(1, (int)($_GET['per_page'] ?? 10));
+        // Cố định 10 user/trang
+        $per_page = self::PER_PAGE;
         $page     = max(1, (int)($_GET['page'] ?? 1));
 
         $search   = trim($_GET['q'] ?? ($_GET['search'] ?? ''));
         $status   = $_GET['status'] ?? 'All';
         $rank     = $_GET['rank']   ?? 'All';
-        $city     = trim($_GET['city'] ?? '');
-        $dateFrom = trim($_GET['date_from'] ?? '');
-        $dateTo   = trim($_GET['date_to'] ?? '');
 
-        $w = []; $p = [];
+        $w = ["nd.VaiTro = 'USER'"]; // Chỉ lấy USER
+        $p = [];
 
         if ($search !== '') {
             $like = '%'.$search.'%';
@@ -76,19 +70,11 @@ class CustomersController
             $w[] = ($status === 'Hoạt động') ? 'nd.TrangThai = 1' : 'nd.TrangThai = 0';
         }
         if ($rank !== 'All') {
-            $w[] = 'nd.Hang = ?'; $p[] = $rank;
-        }
-        if ($city !== '') {
-            $w[] = 'nd.DiaChi LIKE ?'; $p[] = '%'.$city.'%';
-        }
-        if ($dateFrom !== '') {
-            $w[] = 'DATE(nd.NgayTao) >= ?'; $p[] = $dateFrom;
-        }
-        if ($dateTo !== '') {
-            $w[] = 'DATE(nd.NgayTao) <= ?'; $p[] = $dateTo;
+            $w[] = 'nd.Hang = ?';
+            $p[] = $rank;
         }
 
-        $where = $w ? ('WHERE '.implode(' AND ', $w)) : '';
+        $where = 'WHERE ' . implode(' AND ', $w);
 
         // Count
         $sqlCount = "SELECT COUNT(*) AS total FROM nguoidung nd $where";
@@ -105,11 +91,10 @@ class CustomersController
                 nd.HoTen             AS name,
                 nd.Email             AS email,
                 nd.SoDienThoai       AS phone,
-                COALESCE(nd.DiaChi,'') AS address,
                 COALESCE(nd.VaiTro,'USER') AS role,
                 COALESCE(nd.Hang,'Mới')   AS rank,
-                CASE WHEN nd.TrangThai=1 THEN 'Hoạt động' ELSE 'Ngưng' END AS status,
-                DATE(nd.NgayTao)     AS created_at
+                CASE WHEN nd.TrangThai=1 THEN 'Hoạt động' ELSE 'Ngừng' END AS status,
+                DATE_FORMAT(nd.NgayTao, '%d/%m/%Y') AS created_at
             FROM nguoidung nd
             $where
             ORDER BY nd.NgayTao DESC, nd.MaNguoiDung DESC
@@ -121,61 +106,19 @@ class CustomersController
         return compact('customer_list','per_page','page','total_pages','total_customers');
     }
 
-    /* ===== Create/Update ===== */
-    private static function save(mysqli $conn): array
-    {
-        $id      = isset($_POST['id']) && $_POST['id'] !== '' ? (int)$_POST['id'] : null;
-        $name    = trim($_POST['name']    ?? '');
-        $email   = trim($_POST['email']   ?? '');
-        $phone   = trim($_POST['phone']   ?? '');
-        $address = trim($_POST['address'] ?? '');
-        $status  = trim($_POST['status']  ?? 'Hoạt động');
-        $rank    = trim($_POST['rank']    ?? 'Mới');
-
-        if ($name === '' || $email === '' || $phone === '') {
-            return self::respond(false, 'Vui lòng nhập đầy đủ Họ tên, Email, SĐT');
-        }
-        $trangThai = ($status === 'Hoạt động') ? 1 : 0;
-
-        if ($id) {
-            $sql = "UPDATE nguoidung
-                    SET HoTen=?, Email=?, SoDienThoai=?, DiaChi=?, TrangThai=?, Hang=?
-                    WHERE MaNguoiDung=?";
-            $ok  = self::exec($conn, $sql, [$name,$email,$phone,$address,$trangThai,$rank,$id]);
-            if (!$ok) return self::respond(false, 'Cập nhật thất bại');
-        } else {
-            $sql = "INSERT INTO nguoidung (HoTen, Email, SoDienThoai, DiaChi, TrangThai, Hang, NgayTao)
-                    VALUES (?,?,?,?,?,?, NOW())";
-            $ok  = self::exec($conn, $sql, [$name,$email,$phone,$address,$trangThai,$rank]);
-            if (!$ok) return self::respond(false, 'Thêm khách hàng thất bại');
-            $id = (int)$conn->insert_id;
-        }
-
-        self::recomputeRank($conn, $id);
-        return self::respond(true, 'Lưu thành công', ['id'=>$id]);
-    }
-
-    /* ===== Toggle Status ===== */
-    private static function toggle(mysqli $conn): array
-    {
-        $id = (int)($_GET['id'] ?? $_POST['id'] ?? 0);
-        if ($id <= 0) return self::respond(false, 'Thiếu mã KH');
-
-        $row = self::fetchOne($conn, "SELECT TrangThai FROM nguoidung WHERE MaNguoiDung=?", [$id]);
-        if (!$row) return self::respond(false, 'Không tìm thấy KH');
-
-        $new = ((int)$row['TrangThai'] === 1) ? 0 : 1;
-        $ok  = self::exec($conn, "UPDATE nguoidung SET TrangThai=? WHERE MaNguoiDung=?", [$new, $id]);
-        if (!$ok) return self::respond(false, 'Cập nhật trạng thái thất bại');
-        self::recomputeRank($conn, $id);
-        return self::respond(true, 'Đã cập nhật trạng thái');
-    }
-
     /* ===== Delete ===== */
     private static function delete(mysqli $conn): array
     {
         $id = (int)($_GET['id'] ?? 0);
         if ($id <= 0) return self::respond(false, 'Thiếu mã KH');
+
+        // Kiểm tra xem có phải USER không
+        $user = self::fetchOne($conn, "SELECT VaiTro FROM nguoidung WHERE MaNguoiDung=?", [$id]);
+        if (!$user) return self::respond(false, 'Không tìm thấy khách hàng');
+        if (strtoupper($user['VaiTro']) !== 'USER') {
+            return self::respond(false, 'Không thể xóa tài khoản Admin/Staff');
+        }
+
         $ok = self::exec($conn, "DELETE FROM nguoidung WHERE MaNguoiDung=?", [$id]);
         if (!$ok) return self::respond(false, 'Xóa thất bại');
         return self::respond(true, 'Đã xóa khách hàng');
@@ -244,7 +187,7 @@ class CustomersController
     // Recompute cho toàn bộ user
     private static function recomputeAll(mysqli $conn): array
     {
-        $ids = self::fetchAll($conn, "SELECT MaNguoiDung AS id FROM nguoidung");
+        $ids = self::fetchAll($conn, "SELECT MaNguoiDung AS id FROM nguoidung WHERE VaiTro='USER'");
         foreach ($ids as $r) {
             self::recomputeRank($conn, (int)$r['id']);
         }

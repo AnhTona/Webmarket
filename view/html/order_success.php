@@ -9,7 +9,7 @@ $controller = new OrderSuccessController();
 $data = $controller->getOrderDetails($orderId);
 
 if (!$data) {
-    header('Location: home.php');
+    header('Location: /Webmarket/home');
     exit;
 }
 
@@ -23,7 +23,8 @@ $calc = $data['calculations'];
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Đơn hàng thành công</title>
-    <link rel="stylesheet" href="../css/order_success.css">
+    <!-- ✅ THÊM /Webmarket/ -->
+    <link rel="stylesheet" href="/Webmarket/view/css/order_success.css">
 </head>
 <body>
 <div class="success-container">
@@ -117,7 +118,7 @@ $calc = $data['calculations'];
     </div>
 
     <div class="action-buttons">
-        <a href="home.php" class="btn btn-primary">Về trang chủ</a>
+        <a href="/Webmarket/home" class="btn btn-primary">Về trang chủ</a>
         <button onclick="window.print()" class="btn btn-secondary">In hóa đơn</button>
     </div>
 </div>

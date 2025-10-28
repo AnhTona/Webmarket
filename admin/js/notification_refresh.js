@@ -52,17 +52,42 @@ class AdminTemplate {
     }
 
     setupNotifications() {
-        if (!this.notificationBell || !this.notificationDropdown) return;
+        if (!this.notificationBell || !this.notificationDropdown) {
+            console.warn('Notification elements not found');
+            return;
+        }
 
+        // XÓA event listeners cũ (nếu có)
+        this.notificationBell.removeEventListener('click', this._onBellClick);
+        document.removeEventListener('click', this._onDocClick);
+        document.removeEventListener('keydown', this._onKeydown);
+
+        // THÊM event listeners mới
         this.notificationBell.addEventListener('click', this._onBellClick);
         document.addEventListener('click', this._onDocClick);
         document.addEventListener('keydown', this._onKeydown);
+
+        console.log('✅ Notification setup completed');
     }
 
     _onBellClick(e) {
+        console.log('🔔 Bell clicked!');
+        e.preventDefault();
         e.stopPropagation();
+
         const isOpen = this.notificationDropdown.classList.toggle('active');
-        if (isOpen) this.animateBell();
+        console.log('Dropdown is now:', isOpen ? 'OPEN' : 'CLOSED');
+
+        if (isOpen) {
+            this.animateBell();
+            if (window.notificationManager) {
+                window.notificationManager.isDropdownOpen = true;
+            }
+        } else {
+            if (window.notificationManager) {
+                window.notificationManager.isDropdownOpen = false;
+            }
+        }
     }
 
     _onDocClick(e) {
@@ -75,11 +100,18 @@ class AdminTemplate {
     }
 
     _onKeydown(e) {
-        if (e.key === 'Escape') this.closeNotificationDropdown();
+        if (e.key === 'Escape') {
+            this.closeNotificationDropdown();
+        }
     }
 
     closeNotificationDropdown() {
+        const wasClosed = !this.notificationDropdown?.classList.contains('active');
         this.notificationDropdown?.classList.remove('active');
+
+        if (!wasClosed && window.notificationManager) {
+            window.notificationManager.isDropdownOpen = false;
+        }
     }
 
     animateBell() {
@@ -93,17 +125,18 @@ class AdminTemplate {
 // ===== Notification Manager =====
 class NotificationManager {
     constructor(config = {}) {
-        this.refreshInterval = config.refreshInterval || 30000; // 30s
-        this.apiEndpoint = config.apiEndpoint || '../html/get_notifications.php';
+        this.refreshInterval = config.refreshInterval || 30000;
+        // ✅ SỬA: Thêm /Webmarket/
+        this.apiEndpoint = config.apiEndpoint || '/Webmarket/admin/controller/get_notifications.php';
         this.maxItems = config.maxItems || 10;
 
         this.lastCount = 0;
         this.isDropdownOpen = false;
         this.refreshTimer = null;
-        this.inflight = null;          // AbortController
-        this.etag = null;              // server ETag nếu có
-        this.lastDataHash = '';        // để tránh re-render
-        this.backoffMs = 0;            // exponential backoff khi lỗi
+        this.inflight = null;
+        this.etag = null;
+        this.lastDataHash = '';
+        this.backoffMs = 0;
 
         this._boundVisibility = this._onVisibilityChange.bind(this);
 
@@ -111,25 +144,13 @@ class NotificationManager {
     }
 
     init() {
-        // Lấy count ban đầu từ badge (nếu có)
         const badge = document.querySelector('.notification-badge');
         if (badge) this.lastCount = parseInt(badge.textContent) || 0;
 
-        // Theo dõi mở/đóng dropdown
-        const bell = document.getElementById('notification-bell');
-        const dropdown = document.getElementById('notification-dropdown');
-        bell?.addEventListener('click', () => {
-            this.isDropdownOpen = dropdown?.classList.contains('active');
-        });
-        document.addEventListener('click', (e) => {
-            if (!bell?.contains(e.target) && !dropdown?.contains(e.target)) {
-                this.isDropdownOpen = false;
-            }
-        });
-
-        // Auto-refresh + Visibility API
         document.addEventListener('visibilitychange', this._boundVisibility);
         this.startAutoRefresh();
+
+        console.log('✅ NotificationManager initialized');
     }
 
     destroy() {
@@ -142,7 +163,7 @@ class NotificationManager {
         if (document.hidden) {
             this.stopAutoRefresh();
         } else {
-            this.startAutoRefresh(true); // resume ngay
+            this.startAutoRefresh(true);
         }
     }
 
@@ -177,13 +198,11 @@ class NotificationManager {
     }
 
     async refreshNotifications() {
-        // Nếu dropdown đang mở, tránh nhảy UI
         if (this.isDropdownOpen) return;
 
         this._abortInflight();
         this.inflight = new AbortController();
 
-        // Backoff nếu trước đó lỗi
         if (this.backoffMs > 0) {
             await new Promise((r) => setTimeout(r, this.backoffMs));
         }
@@ -202,7 +221,6 @@ class NotificationManager {
                 cache: 'no-store'
             });
 
-            // Nếu server hỗ trợ ETag và không đổi
             if (resp.status === 304) {
                 this._resetBackoff();
                 return;
@@ -212,23 +230,19 @@ class NotificationManager {
 
             const data = await resp.json();
 
-            // Lưu ETag (nếu có)
             const et = resp.headers.get('ETag');
             if (et) this.etag = et;
 
             if (!data || data.success !== true) {
-                // API không thành công: không crash, chỉ log
                 console.warn('Notification API returned non-success payload');
                 this._resetBackoff();
                 return;
             }
 
-            // Chỉ cập nhật UI khi dữ liệu đổi
             const nextHash = this._stableHash({ c: data.count, n: data.notifications });
             if (nextHash !== this.lastDataHash) {
                 this.updateNotificationUI(data);
 
-                // Toast khi có thông báo mới
                 if (typeof data.count === 'number' && data.count > this.lastCount) {
                     this.showNewNotificationToast(data.count - this.lastCount);
                 }
@@ -239,7 +253,7 @@ class NotificationManager {
 
             this._resetBackoff();
         } catch (err) {
-            if (err.name === 'AbortError') return; // bị huỷ là bình thường
+            if (err.name === 'AbortError') return;
             console.error('Error refreshing notifications:', err);
             this._increaseBackoff();
         } finally {
@@ -252,14 +266,12 @@ class NotificationManager {
     }
 
     _increaseBackoff() {
-        // 0 -> 2s -> 4s -> 8s (tối đa 30s)
         this.backoffMs = Math.min(this.backoffMs ? this.backoffMs * 2 : 2000, 30000);
     }
 
     updateNotificationUI(data) {
         this.updateBadge(data.count);
         this.updateHeader(data.count);
-        // Khi dropdown đang mở đã return sớm phía trên
         this.updateNotificationList(Array.isArray(data.notifications) ? data.notifications : []);
     }
 
@@ -299,9 +311,7 @@ class NotificationManager {
             return;
         }
 
-        // render thuần HTML (giữ nguyên kiểu cũ)
         const html = notifications.map((n) => this.getNotificationTemplate(n)).join('');
-        // tránh thrash: chỉ set nếu thay đổi
         if (body._lastHTML !== html) {
             body.innerHTML = html;
             body._lastHTML = html;
@@ -309,7 +319,6 @@ class NotificationManager {
     }
 
     getNotificationTemplate(notif) {
-        // Giữ nguyên lớp & cấu trúc cũ để không cần đổi CSS
         const icon = notif?.icon || 'fa-bell';
         const color = notif?.color || 'bg-blue-500';
         const msg = notif?.message || 'Thông báo';
@@ -369,7 +378,6 @@ class NotificationManager {
 
         toast.querySelector('.toast-close')?.addEventListener('click', () => this.removeToast(toast));
 
-        // Animate bell
         const bell = document.querySelector('#notification-bell i');
         if (bell) {
             bell.classList.add('bell-animate');
@@ -386,12 +394,20 @@ class NotificationManager {
     }
 }
 
-// ===== Khởi tạo khi DOM sẵn sàng =====
+// ===== Khởi tạo =====
 document.addEventListener('DOMContentLoaded', () => {
-    window.adminTemplate = new AdminTemplate(); // giữ nguyên hành vi giao diện
+    if (window.adminTemplate) {
+        console.warn('⚠️ AdminTemplate already initialized');
+        return;
+    }
+
+    window.adminTemplate = new AdminTemplate();
     window.notificationManager = new NotificationManager({
         refreshInterval: 30000,
-        apiEndpoint: '../html/get_notifications.php',
+        // ✅ SỬA: Thêm /Webmarket/
+        apiEndpoint: '/Webmarket/admin/controller/get_notifications.php',
         maxItems: 10
     });
+
+    console.log('✅ Admin Template & Notification Manager loaded');
 });

@@ -131,8 +131,10 @@ class Product_Controller
             $p['DanhMuc'] = $p['TenDanhMuc'];
         }
 
-        $category_options = self::fetchAll($conn, "SELECT TenDanhMuc FROM danhmucsanpham ORDER BY TenDanhMuc");
-
+        $category_options = self::fetchAll(
+            $conn,
+            "SELECT MaDanhMuc, TenDanhMuc FROM danhmucsanpham ORDER BY TenDanhMuc"
+        );
         $notifications = [];
         $notification_count = 0;
 

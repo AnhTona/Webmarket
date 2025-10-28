@@ -1,0 +1,122 @@
+# Bật Rewrite Engine
+RewriteEngine On
+RewriteBase /Webmarket/
+
+# Ngăn truy cập trực tiếp vào các file nhạy cảm
+<FilesMatch "\.(env|log|sql|ini|gitignore)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# ===================================
+# ADMIN ROUTES
+# ===================================
+
+# /admin -> /admin/html/login.php
+RewriteRule ^admin/?$ admin/html/login.php [L]
+
+# /admin/login -> /admin/html/login.php
+RewriteRule ^admin/login/?$ admin/html/login.php [L]
+
+# /admin/dashboard -> /admin/html/dashboard.php
+RewriteRule ^admin/dashboard/?$ admin/html/dashboard.php [L]
+
+# /admin/products -> /admin/html/products.php
+RewriteRule ^admin/products/?$ admin/html/products.php [L]
+
+# /admin/orders -> /admin/html/orders.php
+RewriteRule ^admin/orders/?$ admin/html/orders.php [L]
+
+# /admin/customers -> /admin/html/customers.php
+RewriteRule ^admin/customers/?$ admin/html/customers.php [L]
+
+# /admin/reports -> /admin/html/reports.php
+RewriteRule ^admin/reports/?$ admin/html/reports.php [L]
+
+# /admin/staff -> /admin/html/admin_staff.php
+RewriteRule ^admin/staff/?$ admin/html/admin_staff.php [L]
+
+# /admin/logout -> /admin/html/logout.php
+RewriteRule ^admin/logout/?$ admin/html/logout.php [L]
+
+# ===================================
+# USER/PUBLIC ROUTES
+# ===================================
+
+# Root -> home page
+RewriteRule ^$ view/html/home.php [L]
+RewriteRule ^index\.php$ view/html/home.php [L]
+
+# /home -> /view/html/home.php
+RewriteRule ^home/?$ view/html/home.php [L]
+
+# /products -> /view/html/products.php
+RewriteRule ^products/?$ view/html/products.php [L]
+
+# /cart -> /view/html/cart.php
+RewriteRule ^cart/?$ view/html/cart.php [L]
+
+# /checkout -> /view/html/checkout.php
+RewriteRule ^checkout/?$ view/html/checkout.php [L]
+
+# /order-success -> /view/html/order_success.php
+RewriteRule ^order-success/?$ view/html/order_success.php [L,QSA]
+
+# /login -> /view/html/login.php
+RewriteRule ^login/?$ view/html/login.php [L]
+
+# /contact -> /view/html/contact.php
+RewriteRule ^contact/?$ view/html/contact.php [L]
+
+# /search -> /view/html/search_results.php
+RewriteRule ^search/?$ view/html/search_results.php [L,QSA]
+
+# ===================================
+# API ROUTES (giữ nguyên controller)
+# ===================================
+RewriteCond %{REQUEST_URI} ^/Webmarket/controller/
+RewriteRule ^ - [L]
+
+RewriteCond %{REQUEST_URI} ^/Webmarket/auth/
+RewriteRule ^ - [L]
+
+# ===================================
+# STATIC FILES (CSS, JS, Images)
+# ===================================
+RewriteCond %{REQUEST_FILENAME} -f
+RewriteRule \.(css|js|jpg|jpeg|png|gif|webp|svg|ico|woff|woff2|ttf|eot|pdf)$ - [L]
+
+# ===================================
+# ERROR HANDLING
+# ===================================
+ErrorDocument 404 /Webmarket/view/html/404.php
+
+# ===================================
+# SECURITY HEADERS
+# ===================================
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set X-XSS-Protection "1; mode=block"
+</IfModule>
+
+# ===================================
+# COMPRESSION
+# ===================================
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css text/javascript application/javascript
+</IfModule>
+
+# ===================================
+# CACHING
+# ===================================
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType image/jpg "access plus 1 year"
+    ExpiresByType image/jpeg "access plus 1 year"
+    ExpiresByType image/gif "access plus 1 year"
+    ExpiresByType image/png "access plus 1 year"
+    ExpiresByType image/webp "access plus 1 year"
+    ExpiresByType text/css "access plus 1 month"
+    ExpiresByType application/javascript "access plus 1 month"
+</IfModule>
