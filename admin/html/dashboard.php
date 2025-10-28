@@ -77,17 +77,17 @@ ob_start();
         </div>
 
         <!-- SẢN PHẨM TỒN KHO -->
-        <div class="bg-white p-6 rounded-xl shadow-lg border-l-4 brand-bg hover:shadow-xl transition duration-300">
+        <div class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-gray-800 hover:shadow-xl transition duration-300">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm font-medium text-gray-100 uppercase tracking-wider">Sản Phẩm Tồn Kho</p>
-                    <p class="text-3xl font-extrabold text-white mt-1">
+                    <p class="text-sm font-medium text-gray-500 uppercase tracking-wider">Sản Phẩm Tồn Kho</p>
+                    <p class="text-3xl font-extrabold text-gray-900 mt-1">
                         <?= number_format($kpis['stock_total'], 0, ',', '.') ?>
                     </p>
                 </div>
-                <i class="fa-solid fa-warehouse text-3xl text-white p-3 bg-gray-600 rounded-full"></i>
+                <i class="fa-solid fa-warehouse text-3xl text-gray-600 p-3 bg-gray-100 rounded-full"></i>
             </div>
-            <p class="text-xs text-gray-200 mt-3">Đã kiểm tra vừa xong</p>
+            <p class="text-xs text-gray-500 mt-3">Đã kiểm tra vừa xong</p>
         </div>
     </div>
 
