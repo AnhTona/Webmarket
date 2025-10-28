@@ -164,11 +164,11 @@ class InvoiceGenerator
         $grandTotal = ($subtotal + $vat) - $discountAmount;
 
         $order['calculations'] = [
-                'subtotal' => $subtotal,
-                'discount_rate' => $discountRate,
-                'discount_amount' => $discountAmount,
-                'vat' => $vat,
-                'grand_total' => $grandTotal
+            'subtotal' => $subtotal,
+            'discount_rate' => $discountRate,
+            'discount_amount' => $discountAmount,
+            'vat' => $vat,
+            'grand_total' => $grandTotal
         ];
 
         return $order;
@@ -180,10 +180,10 @@ class InvoiceGenerator
     private static function getDiscountRate(string $rank): float
     {
         $rates = [
-                'Mới' => 0.00,
-                'Bronze' => 0.02,
-                'Silver' => 0.05,
-                'Gold' => 0.10
+            'Mới' => 0.00,
+            'Bronze' => 0.02,
+            'Silver' => 0.05,
+            'Gold' => 0.10
         ];
         return $rates[$rank] ?? 0.00;
     }
@@ -194,10 +194,10 @@ class InvoiceGenerator
     private static function getPaymentMethodName(?string $method): string
     {
         $methods = [
-                'CASH' => 'Tiền mặt',
-                'CARD' => 'Thẻ ngân hàng',
-                'BANKING' => 'Chuyển khoản ngân hàng',
-                'EWALLET' => 'Ví điện tử'
+            'CASH' => 'Tiền mặt',
+            'CARD' => 'Thẻ ngân hàng',
+            'BANKING' => 'Chuyển khoản ngân hàng',
+            'EWALLET' => 'Ví điện tử'
         ];
         return $methods[$method ?? 'CASH'] ?? 'Tiền mặt';
     }

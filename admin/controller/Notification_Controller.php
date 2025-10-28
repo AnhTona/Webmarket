@@ -360,4 +360,5 @@ class NotificationsController {
             'notification_count' => $notification_count
         ];
     }
+
 }

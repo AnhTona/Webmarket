@@ -97,15 +97,15 @@ ob_start();
                         <td><?= htmlspecialchars($admin['created_at']) ?></td>
                         <td class="text-center whitespace-nowrap space-x-2">
                             <button
-                                type="button"
-                                class="edit-admin px-3 py-2 rounded-lg bg-yellow-500 text-white hover:bg-yellow-600 transition"
-                                data-id="<?= $admin['id'] ?>"
-                                data-username="<?= htmlspecialchars($admin['username']) ?>"
-                                data-name="<?= htmlspecialchars($admin['name']) ?>"
-                                data-email="<?= htmlspecialchars($admin['email']) ?>"
-                                data-phone="<?= htmlspecialchars($admin['phone'] ?? '') ?>"
-                                data-role="<?= htmlspecialchars($admin['role']) ?>"
-                                data-status="<?= htmlspecialchars($admin['status']) ?>"
+                                    type="button"
+                                    class="edit-admin px-3 py-2 rounded-lg bg-yellow-500 text-white hover:bg-yellow-600 transition"
+                                    data-id="<?= $admin['id'] ?>"
+                                    data-username="<?= htmlspecialchars($admin['username']) ?>"
+                                    data-name="<?= htmlspecialchars($admin['name']) ?>"
+                                    data-email="<?= htmlspecialchars($admin['email']) ?>"
+                                    data-phone="<?= htmlspecialchars($admin['phone'] ?? '') ?>"
+                                    data-role="<?= htmlspecialchars($admin['role']) ?>"
+                                    data-status="<?= htmlspecialchars($admin['status']) ?>"
                             >
                                 <i class="fa-solid fa-pen"></i> Sửa
                             </button>
@@ -115,17 +115,17 @@ ob_start();
                             if ($currentUserId != $admin['id']):
                                 ?>
                                 <button
-                                    type="button"
-                                    class="toggle-status px-3 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600 transition"
-                                    data-id="<?= $admin['id'] ?>"
+                                        type="button"
+                                        class="toggle-status px-3 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600 transition"
+                                        data-id="<?= $admin['id'] ?>"
                                 >
                                     <i class="fa-solid fa-toggle-on"></i> Bật/Tắt
                                 </button>
                                 <button
-                                    type="button"
-                                    class="delete-admin px-3 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 transition"
-                                    data-id="<?= $admin['id'] ?>"
-                                    data-name="<?= htmlspecialchars($admin['name']) ?>"
+                                        type="button"
+                                        class="delete-admin px-3 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 transition"
+                                        data-id="<?= $admin['id'] ?>"
+                                        data-name="<?= htmlspecialchars($admin['name']) ?>"
                                 >
                                     <i class="fa-solid fa-trash"></i> Xóa
                                 </button>

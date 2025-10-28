@@ -54,4 +54,5 @@ try {
         'error' => 'Internal server error',
         'message' => $e->getMessage()
     ]);
+
 }
