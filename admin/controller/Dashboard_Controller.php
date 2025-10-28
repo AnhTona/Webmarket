@@ -1,273 +1,252 @@
 <?php
 declare(strict_types=1);
-
-/**
- * Dashboard_Controller.php
- * Dashboard analytics controller with PHP 8.4 features
- *
- * @package Admin\Controller
- * @author AnhTona
- * @version 2.0.0
- * @since PHP 8.4
- */
-
 require_once __DIR__ . '/../../model/database.php';
-require_once __DIR__ . '/BaseController.php';
 
-final class DashboardController extends BaseController
+class DashboardController
 {
-    /**
-     * Handle dashboard requests
-     *
-     * @return array<string, mixed>
-     */
     public static function handle(): array
     {
-        self::requireAuth();
+        $conn = self::connect();
 
-        try {
-            return [
-                'kpis' => self::getKPIs(),
-                'revenue_series' => self::getRevenueSeries(),
-                'bars_7d' => self::getRevenueBarChart(),
-                'recent_orders' => self::getRecentOrders(),
-                'notifications' => [],
-                'notification_count' => 0,
-            ];
-        } catch (Throwable $e) {
-            error_log("Dashboard Error: " . $e->getMessage());
-
-            return [
-                'kpis' => self::getEmptyKPIs(),
-                'revenue_series' => [],
-                'bars_7d' => [],
-                'recent_orders' => [],
-                'error' => 'Không thể tải dữ liệu dashboard',
-            ];
-        }
-    }
-
-    /**
-     * Get Key Performance Indicators
-     *
-     * @return array<string, mixed>
-     */
-    private static function getKPIs(): array
-    {
-        // Revenue this month (from thanhtoan table)
-        $revenueMonth = (float)self::fetchOne(
-            "SELECT COALESCE(SUM(SoTien), 0)
-             FROM thanhtoan
-             WHERE YEAR(NgayThanhToan) = YEAR(CURDATE())
-               AND MONTH(NgayThanhToan) = MONTH(CURDATE())"
-        );
-
-        // Revenue last month
-        $revenuePrevMonth = (float)self::fetchOne(
-            "SELECT COALESCE(SUM(SoTien), 0)
-             FROM thanhtoan
-             WHERE YEAR(NgayThanhToan) = YEAR(DATE_SUB(CURDATE(), INTERVAL 1 MONTH))
-               AND MONTH(NgayThanhToan) = MONTH(DATE_SUB(CURDATE(), INTERVAL 1 MONTH))"
-        );
-
-        // Orders last 7 days
-        $orders7d = (int)self::fetchOne(
-            "SELECT COUNT(*) FROM donhang
-             WHERE NgayDat >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
-               AND TrangThai IN ('PLACED', 'CONFIRMED', 'SHIPPING', 'DONE')"
-        );
-
-        // Orders previous 7 days
-        $ordersPrev7d = (int)self::fetchOne(
-            "SELECT COUNT(*) FROM donhang
-             WHERE NgayDat >= DATE_SUB(CURDATE(), INTERVAL 14 DAY)
-               AND NgayDat < DATE_SUB(CURDATE(), INTERVAL 7 DAY)
-               AND TrangThai IN ('PLACED', 'CONFIRMED', 'SHIPPING', 'DONE')"
-        );
-
-        // New customers last 7 days
-        $newCustomers7d = (int)self::fetchOne(
-            "SELECT COUNT(*) FROM nguoidung
-             WHERE NgayTao >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
-               AND VaiTro = 'USER'"
-        );
-
-        // New customers previous 7 days
-        $customersPrev7d = (int)self::fetchOne(
-            "SELECT COUNT(*) FROM nguoidung
-             WHERE NgayTao >= DATE_SUB(CURDATE(), INTERVAL 14 DAY)
-               AND NgayTao < DATE_SUB(CURDATE(), INTERVAL 7 DAY)
-               AND VaiTro = 'USER'"
-        );
-
-        // Total stock
-        $stockTotal = (int)self::fetchOne(
-            "SELECT COALESCE(SUM(SoLuongTon), 0) FROM sanpham"
-        );
-
-        // Calculate percentage changes
-        $revenueChangePct = self::percentChange($revenuePrevMonth, $revenueMonth);
-        $ordersChangePct = self::percentChange($ordersPrev7d, $orders7d);
-        $customersChangePct = self::percentChange($customersPrev7d, $newCustomers7d);
+        // Lấy tất cả dữ liệu dashboard
+        $kpis   = self::kpis($conn);
+        $series = self::revenueSeries30d($conn);
+        $bars7  = self::bars7d($series);
+        $recent = self::recentOrders($conn);
 
         return [
-            'revenue_month' => $revenueMonth,
-            'revenue_month_change_pct' => $revenueChangePct,
-            'revenue_month_pct_text' => self::formatPercent($revenueChangePct),
-
-            'orders_7d_current' => $orders7d,
-            'orders_7d_change_pct' => $ordersChangePct,
-            'orders_7d_pct_text' => self::formatPercent($ordersChangePct),
-
-            'new_customers_7d' => $newCustomers7d,
-            'customers_7d_change_pct' => $customersChangePct,
-            'customers_7d_pct_text' => self::formatPercent($customersChangePct),
-
-            'stock_total' => $stockTotal,
+            'kpis'              => $kpis,
+            'revenue_series'    => $series,
+            'bars_7d'           => $bars7,
+            'recent_orders'     => $recent,
+            'notifications'      => [],
+            'notification_count' => 0,
         ];
     }
 
-    /**
-     * Get revenue series for last 30 days
-     *
-     * @return array<int, array<string, mixed>>
-     */
-    private static function getRevenueSeries(): array
+    /* ===== DB Connect - OOP Version ===== */
+    private static function connect(): mysqli
     {
-        $data = self::fetchAll(
-            "SELECT 
-            DATE(tt.NgayThanhToan) as date,
-            COALESCE(SUM(tt.SoTien), 0) as revenue
-         FROM thanhtoan tt
-         WHERE tt.NgayThanhToan >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
-         GROUP BY DATE(tt.NgayThanhToan)
-         ORDER BY date ASC"
-        );
-
-        return array_map(
-            fn(array $row): array => [
-                'date' => $row['date'],
-                'revenue' => (float)$row['revenue'],
-                'day_of_week' => self::getDayOfWeekVN($row['date']), // ← SỬA ĐÂY
-            ],
-            $data
-        );
+        $db = Database::getInstance();
+        return $db->getConnection();
     }
 
-    /**
-     * Get revenue bar chart data (last 7 days)
-     *
-     * @return array<int, array<string, mixed>>
-     */
-    /**
-     * Get revenue bar chart with full 7 days (including days with no revenue)
-     */
-    private static function getRevenueBarChart(): array
+    /* ===================== KPIs ===================== */
+    private static function kpis(mysqli $conn): array
     {
-        // Get all revenue data from last 7 days
-        $data = self::fetchAll(
-            "SELECT 
-            DATE(tt.NgayThanhToan) as date,
-            COALESCE(SUM(tt.SoTien), 0) as revenue
-         FROM thanhtoan tt
-         WHERE tt.NgayThanhToan >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
-         GROUP BY DATE(tt.NgayThanhToan)
-         ORDER BY date ASC"
-        );
+        // 1. DOANH THU THÁNG NÀY (từ bảng thanhtoan)
+        $rev_month = (float) self::value($conn, "
+            SELECT COALESCE(SUM(SoTien), 0)
+            FROM thanhtoan
+            WHERE YEAR(NgayThanhToan) = YEAR(CURDATE())
+              AND MONTH(NgayThanhToan) = MONTH(CURDATE())
+        ");
 
-        // Create array indexed by date
-        $revenueByDate = [];
-        foreach ($data as $row) {
-            $revenueByDate[$row['date']] = (float)$row['revenue'];
+        // 2. DOANH THU THÁNG TRƯỚC
+        $rev_prev_month = (float) self::value($conn, "
+            SELECT COALESCE(SUM(SoTien), 0)
+            FROM thanhtoan
+            WHERE YEAR(NgayThanhToan) = YEAR(DATE_SUB(CURDATE(), INTERVAL 1 MONTH))
+              AND MONTH(NgayThanhToan) = MONTH(DATE_SUB(CURDATE(), INTERVAL 1 MONTH))
+        ");
+
+        $rev_month_change_pct = self::pctChange($rev_prev_month, $rev_month);
+        $rev_month_pct_text   = self::formatPct($rev_month_change_pct);
+
+        // 3. ĐƠN HÀNG 7 NGÀY GẦN NHẤT (chỉ tính đơn đã xác nhận trở lên)
+        $orders_7d_current = (int) self::value($conn, "
+            SELECT COUNT(*) FROM donhang
+            WHERE NgayDat >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+              AND TrangThai IN ('PLACED', 'CONFIRMED', 'SHIPPING', 'DONE')
+        ");
+
+        // 4. ĐƠN HÀNG 7 NGÀY TRƯỚC ĐÓ
+        $orders_7d_prev = (int) self::value($conn, "
+            SELECT COUNT(*) FROM donhang
+            WHERE NgayDat >= DATE_SUB(CURDATE(), INTERVAL 14 DAY)
+              AND NgayDat <  DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+              AND TrangThai IN ('PLACED', 'CONFIRMED', 'SHIPPING', 'DONE')
+        ");
+
+        $orders_7d_change_pct = self::pctChange($orders_7d_prev, $orders_7d_current);
+        $orders_7d_pct_text   = self::formatPct($orders_7d_change_pct);
+
+        // 5. KHÁCH HÀNG MỚI 7 NGÀY (VaiTro='USER')
+        $new_customers_7d = (int) self::value($conn, "
+            SELECT COUNT(*) FROM nguoidung
+            WHERE VaiTro = 'USER' 
+              AND NgayTao >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+        ");
+
+        // 6. KHÁCH HÀNG MỚI 7 NGÀY TRƯỚC
+        $new_customers_prev = (int) self::value($conn, "
+            SELECT COUNT(*) FROM nguoidung
+            WHERE VaiTro = 'USER'
+              AND NgayTao >= DATE_SUB(CURDATE(), INTERVAL 14 DAY)
+              AND NgayTao <  DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+        ");
+
+        $customers_7d_change_pct = self::pctChange($new_customers_prev, $new_customers_7d);
+        $customers_7d_pct_text   = self::formatPct($customers_7d_change_pct);
+
+        // 7. TỒN KHO (SoLuongTon)
+        $stock_total = (int) self::value($conn, "
+            SELECT COALESCE(SUM(SoLuongTon), 0)
+            FROM sanpham
+            WHERE TrangThai = 1
+        ");
+
+        return [
+            'revenue_month'             => $rev_month,
+            'revenue_month_change_pct'  => $rev_month_change_pct,
+            'revenue_month_pct_text'    => $rev_month_pct_text,
+
+            'orders_7d_current'         => $orders_7d_current,
+            'orders_7d_change_pct'      => $orders_7d_change_pct,
+            'orders_7d_pct_text'        => $orders_7d_pct_text,
+
+            'new_customers_7d'          => $new_customers_7d,
+            'customers_7d_change_pct'   => $customers_7d_change_pct,
+            'customers_7d_pct_text'     => $customers_7d_pct_text,
+
+            'stock_total'               => $stock_total,
+        ];
+    }
+
+    /* ================== Time series ================== */
+    private static function revenueSeries30d(mysqli $conn): array
+    {
+        $rows = self::rows($conn, "
+            SELECT DATE(NgayThanhToan) AS d, SUM(SoTien) AS s
+            FROM thanhtoan
+            WHERE NgayThanhToan >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+            GROUP BY DATE(NgayThanhToan)
+            ORDER BY d
+        ");
+
+        $labels = [];
+        $series = [];
+        foreach ($rows as $r) {
+            $labels[] = $r['d'];
+            $series[] = (float)$r['s'];
         }
+        return ['labels' => $labels, 'series' => $series];
+    }
 
-        // Generate full 7 days
+    private static function bars7d(array $series): array
+    {
+        $labelsAll = $series['labels'] ?? [];
+        $seriesAll = $series['series'] ?? [];
+        $cnt   = count($labelsAll);
+        $start = max(0, $cnt - 7);
+
         $bars = [];
-        for ($i = 6; $i >= 0; $i--) {
-            $date = date('Y-m-d', strtotime("-{$i} days"));
-            $revenue = $revenueByDate[$date] ?? 0;
-
-            $bars[] = [
-                'date' => $date,
-                'dow' => self::getDayOfWeekVN($date),
-                'revenue' => $revenue,
-            ];
+        $max  = 0;
+        for ($i = $start; $i < $cnt; $i++) {
+            $day = $labelsAll[$i] ?? date('Y-m-d');
+            $val = (int)($seriesAll[$i] ?? 0);
+            $w   = (int)date('N', strtotime($day));
+            $dow = ['','T2','T3','T4','T5','T6','T7','CN'][$w];
+            $bars[] = ['day'=>$day, 'dow'=>$dow, 'value'=>$val];
+            if ($val > $max) $max = $val;
         }
 
-        // Calculate percentages
-        $revenues = array_column($bars, 'revenue');
-        $maxRevenue = max($revenues);
-        $maxRevenue = $maxRevenue > 0 ? $maxRevenue : 1;
+        if (!$bars) {
+            for ($j=6; $j>=0; $j--) {
+                $d = date('Y-m-d', strtotime("-$j day"));
+                $w = (int)date('N', strtotime($d));
+                $dow = ['','T2','T3','T4','T5','T6','T7','CN'][$w];
+                $bars[] = ['day'=>$d, 'dow'=>$dow, 'value'=>0];
+            }
+        }
 
-        return array_map(
-            fn(array $day): array => [
-                'date' => $day['date'],
-                'dow' => $day['dow'],
-                'revenue' => $day['revenue'],
-                'pct' => round(($day['revenue'] / $maxRevenue) * 100, 2),
-                'title' => number_format($day['revenue'], 0, ',', '.') . ' VNĐ',
-            ],
-            $bars
-        );
+        foreach ($bars as &$b) {
+            $pct = $max > 0 ? round($b['value'] * 100 / $max, 2) : 5;
+            $b['pct'] = max($pct, $b['value'] > 0 ? 8 : 3);
+            $million  = $b['value'] >= 1_000_000
+                ? round($b['value'] / 1_000_000) . 'M'
+                : number_format($b['value'], 0, ',', '.');
+            $b['title'] = "{$b['dow']}: {$million}";
+        }
+        unset($b);
+
+        return $bars;
     }
 
-    /**
-     * Get 5 most recent orders
-     *
-     * @return array<int, array<string, mixed>>
-     */
-    private static function getRecentOrders(): array
+    /* ================= Recent orders ================= */
+    private static function recentOrders(mysqli $conn): array
     {
-        return self::fetchAll(
-            "SELECT 
-                dh.MaDonHang,
-                nd.HoTen as KhachHang,
-                dh.NgayDat,
-                dh.TongTien,
-                dh.TrangThai
-             FROM donhang dh
-             LEFT JOIN nguoidung nd ON dh.MaNguoiDung = nd.MaNguoiDung
-             ORDER BY dh.NgayDat DESC
-             LIMIT 5"
-        );
+        return self::rows($conn, "
+            SELECT 
+                dh.MaDonHang, 
+                dh.NgayDat, 
+                dh.TongTien, 
+                dh.TrangThai,
+                COALESCE(nd.HoTen, 'Khách lẻ') AS KhachHang
+            FROM donhang dh
+            LEFT JOIN nguoidung nd ON nd.MaNguoiDung = dh.MaNguoiDung
+            WHERE dh.TrangThai != 'DRAFT'
+            ORDER BY dh.NgayDat DESC
+            LIMIT 5
+        ");
     }
 
-    /**
-     * Get empty KPIs structure for error state
-     *
-     * @return array<string, mixed>
-     */
-    private static function getEmptyKPIs(): array
+    /* ====================== Utils ==================== */
+    private static function pctChange(float $prev, float $curr): float
     {
-        return [
-            'revenue_month' => 0,
-            'revenue_month_change_pct' => 0,
-            'revenue_month_pct_text' => '0%',
-            'orders_7d_current' => 0,
-            'orders_7d_change_pct' => 0,
-            'orders_7d_pct_text' => '0%',
-            'new_customers_7d' => 0,
-            'customers_7d_change_pct' => 0,
-            'customers_7d_pct_text' => '0%',
-            'stock_total' => 0,
-        ];
+        if (abs($prev) < 0.00001) return $curr > 0 ? 100.0 : 0.0;
+        return round((($curr - $prev) / $prev) * 100, 2);
     }
-    /**
-     * Convert English day of week to Vietnamese
-     */
-    private static function getDayOfWeekVN(string $date): string
-    {
-        $dayMap = [
-            'Mon' => 'T2',
-            'Tue' => 'T3',
-            'Wed' => 'T4',
-            'Thu' => 'T5',
-            'Fri' => 'T6',
-            'Sat' => 'T7',
-            'Sun' => 'CN',
-        ];
 
-        $day = date('D', strtotime($date));
-        return $dayMap[$day] ?? $day;
+    private static function formatPct(float $pct): string
+    {
+        $txt = number_format($pct, 2, '.', '');
+        $txt = rtrim(rtrim($txt, '0'), '.');
+        return ($pct >= 0 ? '+' : '') . $txt . '%';
+    }
+
+    private static function value(mysqli $conn, string $sql, array $params = [])
+    {
+        $stmt = $conn->prepare($sql);
+        if (!$stmt) return 0;
+        if ($params) self::bind($stmt, $params);
+        if (!$stmt->execute()) { $stmt->close(); return 0; }
+
+        $val = 0;
+        if (method_exists($stmt, 'get_result')) {
+            $res = $stmt->get_result();
+            if ($res) {
+                $row = $res->fetch_row();
+                if ($row && isset($row[0])) $val = $row[0];
+            }
+        } else {
+            $stmt->bind_result($val);
+            $stmt->fetch();
+        }
+        $stmt->close();
+        return is_numeric($val) ? $val + 0 : 0;
+    }
+
+    private static function rows(mysqli $conn, string $sql, array $params = []): array
+    {
+        $stmt = $conn->prepare($sql);
+        if (!$stmt) return [];
+        if ($params) self::bind($stmt, $params);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        $out = $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
+        $stmt->close();
+        return $out ?: [];
+    }
+
+    private static function bind(mysqli_stmt $stmt, array $params): void
+    {
+        $types = '';
+        $vals  = [];
+        foreach ($params as $p) {
+            $types .= is_int($p) ? 'i' : (is_float($p) ? 'd' : 's');
+            $vals[] = $p;
+        }
+        if ($types) $stmt->bind_param($types, ...$vals);
     }
 }

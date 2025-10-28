@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
     searchInput.addEventListener('input', () => {
         clearTimeout(timeout);
         const keyword = searchInput.value.trim();
-        
+
         // Ẩn kết quả nếu keyword rỗng
         if (keyword.length === 0) {
             autocompleteResults.innerHTML = '';
@@ -34,17 +34,17 @@ document.addEventListener('DOMContentLoaded', () => {
                             data.forEach(product => {
                                 const link = document.createElement('a');
                                 // Gán keyword của gợi ý vào link
-                                const searchUrl = `search_results.php?keyword=${encodeURIComponent(product.name)}`; 
-                                
+                                const searchUrl = `search_results.php?keyword=${encodeURIComponent(product.name)}`;
+
                                 link.href = searchUrl;
                                 link.textContent = product.name;
                                 link.dataset.id = product.id;
-                                
+
                                 // Nếu click vào gợi ý -> chuyển hướng ngay
                                 link.addEventListener('click', (e) => {
                                     // Không cần e.preventDefault() vì đã có link.href
                                 });
-                                
+
                                 autocompleteResults.appendChild(link);
                             });
                             autocompleteResults.style.display = 'block';

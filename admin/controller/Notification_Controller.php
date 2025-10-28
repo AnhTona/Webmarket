@@ -1,237 +1,363 @@
 <?php
-declare(strict_types=1);
 
 require_once __DIR__ . '/../../model/database.php';
-require_once __DIR__ . '/BaseController.php';
 
-final class NotificationsController extends BaseController
-{
-    private const NOTIFICATION_TYPES = [
-        'new_order' => ['icon' => 'fa-shopping-cart', 'color' => 'bg-blue-500', 'priority' => 'high'],
-        'order_confirmed' => ['icon' => 'fa-check-circle', 'color' => 'bg-green-500', 'priority' => 'medium'],
-        'low_stock' => ['icon' => 'fa-exclamation-triangle', 'color' => 'bg-yellow-500', 'priority' => 'high'],
-        'new_customer' => ['icon' => 'fa-user-plus', 'color' => 'bg-purple-500', 'priority' => 'low'],
-        'system' => ['icon' => 'fa-info-circle', 'color' => 'bg-gray-500', 'priority' => 'medium'],
-    ];
+class NotificationsController {
 
-    public static function getNotificationsForTemplate(): array
-    {
-        try {
-            return [
-                'notifications' => self::getUnreadNotifications(limit: 5),
-                'notification_count' => self::getUnreadCount(),
-            ];
-        } catch (Throwable $e) {
-            error_log("Get Notifications Error: " . $e->getMessage());
-            return ['notifications' => [], 'notification_count' => 0];
+    /**
+     * Lấy danh sách thông báo chưa đọc
+     */
+    public static function getUnreadNotifications($limit = 10) {
+        // Sử dụng Database OOP
+        $db = Database::getInstance();
+        $conn = $db->getConnection();
+
+        // Kiểm tra kết nối
+        if (!$conn || $conn->connect_error) {
+            error_log("Database connection error in NotificationsController");
+            return [];
         }
-    }
 
-    public static function getUnreadNotifications(int $limit = 10): array
-    {
         $notifications = [];
 
         try {
-            // ✅ FIXED: VaiTro filter
-            $vaiTroFilter = "(nd.VaiTro = '' OR nd.VaiTro IS NULL OR nd.VaiTro = 'USER')";
-
-            // 1. New orders (PLACED - waiting confirmation) in last 24h
-            $newOrders = self::fetchAll(
-                "SELECT 
+            // 1. Lấy đơn hàng mới (PLACED - chờ xác nhận) trong 24h qua
+            $sql_new_orders = "
+                SELECT 
                     dh.MaDonHang,
                     nd.HoTen as KhachHang,
                     dh.NgayDat,
                     dh.TongTien,
+                    dh.TrangThai,
                     'new_order' as type
-                 FROM donhang dh
-                 INNER JOIN nguoidung nd ON dh.MaNguoiDung = nd.MaNguoiDung
-                 WHERE dh.TrangThai = 'PLACED'
-                   AND dh.NgayDat >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
-                   AND {$vaiTroFilter}
-                 ORDER BY dh.NgayDat DESC
-                 LIMIT ?",
-                [$limit]
-            );
+                FROM donhang dh
+                INNER JOIN nguoidung nd ON dh.MaNguoiDung = nd.MaNguoiDung
+                WHERE dh.TrangThai = 'PLACED'
+                AND dh.NgayDat >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+                ORDER BY dh.NgayDat DESC
+                LIMIT ?
+            ";
 
-            foreach ($newOrders as $order) {
-                $notifications[] = [
-                    'id' => 'order_' . $order['MaDonHang'],
-                    'type' => 'new_order',
-                    'message' => sprintf("Đơn hàng mới từ %s (#%05d)", $order['KhachHang'], $order['MaDonHang']),
-                    'time' => self::timeAgo($order['NgayDat']),
-                    'order_id' => $order['MaDonHang'],
-                    'timestamp' => strtotime($order['NgayDat']),
-                    'priority' => 'high',
-                    'amount' => (float)$order['TongTien'],
-                ];
+            $stmt = $conn->prepare($sql_new_orders);
+            if (!$stmt) {
+                error_log("Prepare failed: " . $conn->error);
+                return [];
             }
 
-            // 2. Confirmed orders
-            $confirmedOrders = self::fetchAll(
-                "SELECT 
+            $stmt->bind_param("i", $limit);
+            $stmt->execute();
+            $result = $stmt->get_result();
+
+            while ($row = $result->fetch_assoc()) {
+                $timeAgo = self::timeAgo($row['NgayDat']);
+                $notifications[] = [
+                    'id' => 'order_' . $row['MaDonHang'],
+                    'type' => 'new_order',
+                    'message' => "Đơn hàng mới từ " . htmlspecialchars($row['KhachHang']) . " (HD" . str_pad($row['MaDonHang'], 5, '0', STR_PAD_LEFT) . ")",
+                    'time' => $timeAgo,
+                    'order_id' => $row['MaDonHang'],
+                    'timestamp' => strtotime($row['NgayDat']),
+                    'priority' => 'high',
+                    'amount' => $row['TongTien']
+                ];
+            }
+            $stmt->close();
+
+            // 2. Lấy đơn hàng đã xác nhận (CONFIRMED - đang chuẩn bị) trong 24h qua
+            $sql_confirmed_orders = "
+                SELECT 
                     dh.MaDonHang,
                     nd.HoTen as KhachHang,
                     dh.NgayDat,
+                    dh.TongTien,
                     'order_confirmed' as type
-                 FROM donhang dh
-                 INNER JOIN nguoidung nd ON dh.MaNguoiDung = nd.MaNguoiDung
-                 WHERE dh.TrangThai = 'CONFIRMED'
-                   AND dh.NgayDat >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
-                   AND {$vaiTroFilter}
-                 ORDER BY dh.NgayDat DESC
-                 LIMIT ?",
-                [$limit]
-            );
+                FROM donhang dh
+                INNER JOIN nguoidung nd ON dh.MaNguoiDung = nd.MaNguoiDung
+                WHERE dh.TrangThai = 'CONFIRMED'
+                AND dh.NgayDat >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+                ORDER BY dh.NgayDat DESC
+                LIMIT ?
+            ";
 
-            foreach ($confirmedOrders as $order) {
-                $notifications[] = [
-                    'id' => 'order_confirmed_' . $order['MaDonHang'],
-                    'type' => 'order_confirmed',
-                    'message' => sprintf("Đơn hàng #%05d đang được chuẩn bị", $order['MaDonHang']),
-                    'time' => self::timeAgo($order['NgayDat']),
-                    'order_id' => $order['MaDonHang'],
-                    'timestamp' => strtotime($order['NgayDat']),
-                    'priority' => 'medium',
-                ];
+            $stmt = $conn->prepare($sql_confirmed_orders);
+            if ($stmt) {
+                $stmt->bind_param("i", $limit);
+                $stmt->execute();
+                $result = $stmt->get_result();
+
+                while ($row = $result->fetch_assoc()) {
+                    $timeAgo = self::timeAgo($row['NgayDat']);
+                    $notifications[] = [
+                        'id' => 'confirmed_' . $row['MaDonHang'],
+                        'type' => 'order_confirmed',
+                        'message' => "Đơn hàng HD" . str_pad($row['MaDonHang'], 5, '0', STR_PAD_LEFT) . " đang được chuẩn bị",
+                        'time' => $timeAgo,
+                        'order_id' => $row['MaDonHang'],
+                        'timestamp' => strtotime($row['NgayDat']),
+                        'priority' => 'medium'
+                    ];
+                }
+                $stmt->close();
             }
 
-            // 3. Low stock products (< 10 items)
-            $lowStock = self::fetchAll(
-                "SELECT MaSanPham, TenSanPham, SoLuongTon
-                 FROM sanpham
-                 WHERE SoLuongTon < 10 AND SoLuongTon > 0
-                 ORDER BY SoLuongTon ASC
-                 LIMIT ?",
-                [$limit]
-            );
+            // 3. Lấy đơn hàng đang giao (SHIPPING) trong 24h qua
+            $sql_shipping_orders = "
+                SELECT 
+                    dh.MaDonHang,
+                    nd.HoTen as KhachHang,
+                    dh.NgayDat,
+                    'order_shipping' as type
+                FROM donhang dh
+                INNER JOIN nguoidung nd ON dh.MaNguoiDung = nd.MaNguoiDung
+                WHERE dh.TrangThai = 'SHIPPING'
+                AND dh.NgayDat >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+                ORDER BY dh.NgayDat DESC
+                LIMIT ?
+            ";
 
-            foreach ($lowStock as $product) {
-                $notifications[] = [
-                    'id' => 'low_stock_' . $product['MaSanPham'],
-                    'type' => 'low_stock',
-                    'message' => sprintf("Sản phẩm '%s' sắp hết hàng (còn %d)", $product['TenSanPham'], $product['SoLuongTon']),
-                    'time' => 'Vừa xong',
-                    'product_id' => $product['MaSanPham'],
-                    'timestamp' => time(),
-                    'priority' => 'high',
-                ];
+            $stmt = $conn->prepare($sql_shipping_orders);
+            if ($stmt) {
+                $stmt->bind_param("i", $limit);
+                $stmt->execute();
+                $result = $stmt->get_result();
+
+                while ($row = $result->fetch_assoc()) {
+                    $timeAgo = self::timeAgo($row['NgayDat']);
+                    $notifications[] = [
+                        'id' => 'shipping_' . $row['MaDonHang'],
+                        'type' => 'order_shipping',
+                        'message' => "Đơn hàng HD" . str_pad($row['MaDonHang'], 5, '0', STR_PAD_LEFT) . " đang được giao",
+                        'time' => $timeAgo,
+                        'order_id' => $row['MaDonHang'],
+                        'timestamp' => strtotime($row['NgayDat']),
+                        'priority' => 'low'
+                    ];
+                }
+                $stmt->close();
             }
 
-            // 4. New customers in last 7 days
-            // ✅ FIXED: VaiTro filter
-            $newCustomers = self::fetchAll(
-                "SELECT MaNguoiDung, HoTen, Email, NgayTao
-                 FROM nguoidung
-                 WHERE {$vaiTroFilter}
-                   AND NgayTao >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-                 ORDER BY NgayTao DESC
-                 LIMIT ?",
-                [$limit]
-            );
+            // 4. Lấy đơn hàng chờ xác nhận lâu (> 2 giờ)
+            $sql_pending_orders = "
+                SELECT 
+                    dh.MaDonHang,
+                    nd.HoTen as KhachHang,
+                    dh.NgayDat,
+                    'pending_order' as type
+                FROM donhang dh
+                INNER JOIN nguoidung nd ON dh.MaNguoiDung = nd.MaNguoiDung
+                WHERE dh.TrangThai = 'PLACED'
+                AND dh.NgayDat <= DATE_SUB(NOW(), INTERVAL 2 HOUR)
+                AND dh.NgayDat >= DATE_SUB(NOW(), INTERVAL 48 HOUR)
+                ORDER BY dh.NgayDat ASC
+                LIMIT ?
+            ";
 
-            foreach ($newCustomers as $customer) {
-                $notifications[] = [
-                    'id' => 'new_customer_' . $customer['MaNguoiDung'],
-                    'type' => 'new_customer',
-                    'message' => sprintf("Khách hàng mới: %s", $customer['HoTen']),
-                    'time' => self::timeAgo($customer['NgayTao']),
-                    'customer_id' => $customer['MaNguoiDung'],
-                    'timestamp' => strtotime($customer['NgayTao']),
-                    'priority' => 'low',
-                ];
+            $stmt = $conn->prepare($sql_pending_orders);
+            if ($stmt) {
+                $stmt->bind_param("i", $limit);
+                $stmt->execute();
+                $result = $stmt->get_result();
+
+                while ($row = $result->fetch_assoc()) {
+                    $timeAgo = self::timeAgo($row['NgayDat']);
+                    $notifications[] = [
+                        'id' => 'pending_' . $row['MaDonHang'],
+                        'type' => 'pending_order',
+                        'message' => "Đơn hàng HD" . str_pad($row['MaDonHang'], 5, '0', STR_PAD_LEFT) . " chờ xác nhận quá lâu",
+                        'time' => $timeAgo,
+                        'order_id' => $row['MaDonHang'],
+                        'timestamp' => strtotime($row['NgayDat']),
+                        'priority' => 'urgent'
+                    ];
+                }
+                $stmt->close();
             }
 
-            usort($notifications, fn($a, $b) => $b['timestamp'] <=> $a['timestamp']);
+            // 5. Kiểm tra sản phẩm sắp hết hàng (số lượng tồn < 10)
+            $sql_low_stock = "
+                SELECT 
+                    MaSanPham,
+                    TenSanPham,
+                    SoLuongTon,
+                    'low_stock' as type
+                FROM sanpham
+                WHERE SoLuongTon < 10
+                AND TrangThai = 1
+                ORDER BY SoLuongTon ASC
+                LIMIT 5
+            ";
+
+            $result = $conn->query($sql_low_stock);
+
+            if ($result) {
+                while ($row = $result->fetch_assoc()) {
+                    $notifications[] = [
+                        'id' => 'stock_' . $row['MaSanPham'],
+                        'type' => 'low_stock',
+                        'message' => "Sản phẩm \"" . htmlspecialchars($row['TenSanPham']) . "\" sắp hết hàng (còn " . $row['SoLuongTon'] . ")",
+                        'time' => "Vừa xong",
+                        'order_id' => null,
+                        'product_id' => $row['MaSanPham'],
+                        'timestamp' => time(),
+                        'priority' => 'medium'
+                    ];
+                }
+            }
+
+            // 6. Kiểm tra yêu cầu chăm sóc khách hàng chưa xử lý
+            $sql_support = "
+                SELECT 
+                    cs.MaYeuCau,
+                    nd.HoTen,
+                    cs.NgayTao,
+                    cs.TrangThai,
+                    'support_request' as type
+                FROM chamsockhachhang cs
+                INNER JOIN nguoidung nd ON cs.MaNguoiDung = nd.MaNguoiDung
+                WHERE cs.TrangThai IN ('OPEN', 'IN_PROGRESS')
+                ORDER BY cs.NgayTao DESC
+                LIMIT 5
+            ";
+
+            $result = $conn->query($sql_support);
+
+            if ($result) {
+                while ($row = $result->fetch_assoc()) {
+                    $timeAgo = self::timeAgo($row['NgayTao']);
+                    $notifications[] = [
+                        'id' => 'support_' . $row['MaYeuCau'],
+                        'type' => 'support_request',
+                        'message' => "Yêu cầu hỗ trợ từ " . htmlspecialchars($row['HoTen']),
+                        'time' => $timeAgo,
+                        'order_id' => null,
+                        'timestamp' => strtotime($row['NgayTao']),
+                        'priority' => 'medium'
+                    ];
+                }
+            }
+
+            // Sắp xếp theo độ ưu tiên và thời gian
+            usort($notifications, function($a, $b) {
+                $priority_order = ['urgent' => 0, 'high' => 1, 'medium' => 2, 'low' => 3];
+                $a_priority = $priority_order[$a['priority']] ?? 999;
+                $b_priority = $priority_order[$b['priority']] ?? 999;
+
+                if ($a_priority === $b_priority) {
+                    return $b['timestamp'] - $a['timestamp'];
+                }
+                return $a_priority - $b_priority;
+            });
+
+            // Giới hạn số lượng
             $notifications = array_slice($notifications, 0, $limit);
 
-        } catch (Throwable $e) {
-            error_log("Get Unread Notifications Error: " . $e->getMessage());
+        } catch (Exception $e) {
+            error_log("Error in getUnreadNotifications: " . $e->getMessage());
         }
 
         return $notifications;
     }
 
-    public static function getUnreadCount(): int
-    {
-        try {
-            $count = (int)self::fetchOne(
-                "SELECT COUNT(*) FROM donhang 
-                 WHERE TrangThai = 'PLACED' 
-                   AND NgayDat >= DATE_SUB(NOW(), INTERVAL 24 HOUR)"
-            );
+    /**
+     * Đếm số thông báo quan trọng chưa xử lý
+     */
+    public static function getUnreadCount() {
+        $db = Database::getInstance();
+        $conn = $db->getConnection();
 
-            $count += (int)self::fetchOne(
-                "SELECT COUNT(*) FROM sanpham 
-                 WHERE SoLuongTon < 10 AND SoLuongTon > 0"
-            );
-
-            return $count;
-        } catch (Throwable $e) {
-            error_log("Get Unread Count Error: " . $e->getMessage());
+        // Kiểm tra kết nối
+        if (!$conn || $conn->connect_error) {
             return 0;
         }
-    }
 
-    public static function getNotificationIcon(string $type): string
-    {
-        return self::NOTIFICATION_TYPES[$type]['icon'] ?? 'fa-bell';
-    }
+        $count = 0;
 
-    public static function getNotificationColor(string $type): string
-    {
-        return self::NOTIFICATION_TYPES[$type]['color'] ?? 'bg-gray-500';
-    }
-
-    public static function getNotificationPriority(string $type): string
-    {
-        return self::NOTIFICATION_TYPES[$type]['priority'] ?? 'medium';
-    }
-
-    private static function timeAgo(string $datetime): string
-    {
-        $diff = time() - strtotime($datetime);
-
-        return match(true) {
-            $diff < 60 => 'Vừa xong',
-            $diff < 3600 => floor($diff / 60) . ' phút trước',
-            $diff < 86400 => floor($diff / 3600) . ' giờ trước',
-            $diff < 604800 => floor($diff / 86400) . ' ngày trước',
-            default => date('d/m/Y H:i', strtotime($datetime))
-        };
-    }
-
-    public static function getStatistics(): array
-    {
         try {
-            // ✅ FIXED: VaiTro filter
-            $vaiTroFilter = "(VaiTro = '' OR VaiTro IS NULL OR VaiTro = 'USER')";
+            // Đếm đơn hàng mới (PLACED)
+            $sql = "
+                SELECT 
+                    (SELECT COUNT(*) FROM donhang WHERE TrangThai = 'PLACED' AND NgayDat >= DATE_SUB(NOW(), INTERVAL 24 HOUR)) as new_orders,
+                    (SELECT COUNT(*) FROM donhang WHERE TrangThai = 'PLACED' AND NgayDat <= DATE_SUB(NOW(), INTERVAL 2 HOUR)) as pending_orders,
+                    (SELECT COUNT(*) FROM sanpham WHERE SoLuongTon < 10 AND TrangThai = 1) as low_stock,
+                    (SELECT COUNT(*) FROM chamsockhachhang WHERE TrangThai IN ('OPEN', 'IN_PROGRESS')) as support_requests
+            ";
 
-            return [
-                'total_unread' => self::getUnreadCount(),
-                'new_orders' => (int)self::fetchOne(
-                    "SELECT COUNT(*) FROM donhang 
-                     WHERE TrangThai = 'PLACED' 
-                       AND NgayDat >= DATE_SUB(NOW(), INTERVAL 24 HOUR)"
-                ),
-                'low_stock_items' => (int)self::fetchOne(
-                    "SELECT COUNT(*) FROM sanpham 
-                     WHERE SoLuongTon < 10 AND SoLuongTon > 0"
-                ),
-                'new_customers_week' => (int)self::fetchOne(
-                    "SELECT COUNT(*) FROM nguoidung 
-                     WHERE {$vaiTroFilter}
-                       AND NgayTao >= DATE_SUB(NOW(), INTERVAL 7 DAY)"
-                ),
-            ];
-        } catch (Throwable $e) {
-            error_log("Get Notification Statistics Error: " . $e->getMessage());
-            return [
-                'total_unread' => 0,
-                'new_orders' => 0,
-                'low_stock_items' => 0,
-                'new_customers_week' => 0,
-            ];
+            $result = $conn->query($sql);
+            if ($result && $row = $result->fetch_assoc()) {
+                $count = (int)$row['new_orders'] + (int)$row['pending_orders'] + (int)$row['low_stock'] + (int)$row['support_requests'];
+            }
+        } catch (Exception $e) {
+            error_log("Error in getUnreadCount: " . $e->getMessage());
+        }
+
+        return $count;
+    }
+
+    /**
+     * Tính thời gian đã qua (time ago)
+     */
+    private static function timeAgo($datetime) {
+        $timestamp = strtotime($datetime);
+        $diff = time() - $timestamp;
+
+        if ($diff < 60) {
+            return "Vừa xong";
+        } elseif ($diff < 3600) {
+            $mins = floor($diff / 60);
+            return $mins . " phút trước";
+        } elseif ($diff < 86400) {
+            $hours = floor($diff / 3600);
+            return $hours . " giờ trước";
+        } else {
+            $days = floor($diff / 86400);
+            return $days . " ngày trước";
         }
     }
 
+    /**
+     * Lấy icon cho từng loại thông báo
+     */
+    public static function getNotificationIcon($type) {
+        $icons = [
+            'new_order' => 'fa-shopping-cart',
+            'order_confirmed' => 'fa-check-circle',
+            'order_shipping' => 'fa-truck',
+            'pending_order' => 'fa-clock',
+            'order_completed' => 'fa-check-double',
+            'low_stock' => 'fa-exclamation-triangle',
+            'support_request' => 'fa-headset'
+        ];
+
+        return $icons[$type] ?? 'fa-bell';
+    }
+
+    /**
+     * Lấy màu cho từng loại thông báo
+     */
+    public static function getNotificationColor($type) {
+        $colors = [
+            'new_order' => 'bg-blue-100 text-blue-600',
+            'order_confirmed' => 'bg-green-100 text-green-600',
+            'order_shipping' => 'bg-purple-100 text-purple-600',
+            'pending_order' => 'bg-yellow-100 text-yellow-600',
+            'order_completed' => 'bg-green-100 text-green-600',
+            'low_stock' => 'bg-red-100 text-red-600',
+            'support_request' => 'bg-orange-100 text-orange-600'
+        ];
+
+        return $colors[$type] ?? 'bg-gray-100 text-gray-600';
+    }
+
+    /**
+     * Handle cho các trang khác sử dụng
+     */
+    public static function getNotificationsForTemplate() {
+        $notifications = self::getUnreadNotifications(10);
+        $notification_count = self::getUnreadCount();
+
+        return [
+            'notifications' => $notifications,
+            'notification_count' => $notification_count
+        ];
+    }
 }

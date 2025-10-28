@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const mapContainer = mapIframe ? mapIframe.parentElement : null;
 
     if (mapContainer && mapIframe) {
-        
+
         // 1. Xử lý sự kiện Ctrl + Scroll (cho phép zoom)
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Control' || e.ctrlKey) {
@@ -31,7 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         mapContainer.addEventListener('mousedown', (e) => {
             // Chỉ bật tương tác khi chuột trái được nhấn và không có Ctrl
-            if (e.button === 0 && !e.ctrlKey) { 
+            if (e.button === 0 && !e.ctrlKey) {
                 mapContainer.classList.add('interactive');
                 isDragging = true;
                 // Đổi cursor thành dragging (nếu CSS đã định nghĩa :active)
@@ -43,15 +43,15 @@ document.addEventListener('DOMContentLoaded', () => {
         document.addEventListener('mouseup', () => {
             if (isDragging) {
                 // Tắt tương tác khi nhả chuột (chỉ tắt khi không có Ctrl)
-                if (!event.ctrlKey) { 
+                if (!event.ctrlKey) {
                     mapContainer.classList.remove('interactive');
                 }
                 isDragging = false;
                 mapContainer.style.cursor = 'default';
             }
         });
-        
+
         // Thiết lập cursor mặc định cho container để gợi ý hành động
-        mapContainer.style.cursor = 'pointer'; 
+        mapContainer.style.cursor = 'pointer';
     }
 });

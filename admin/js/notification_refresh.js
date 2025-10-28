@@ -72,14 +72,15 @@ class AdminTemplate {
 
     _onBellClick(e) {
         console.log('🔔 Bell clicked!');
-        e.preventDefault();
-        e.stopPropagation();
+        e.preventDefault(); // Ngăn hành vi mặc định
+        e.stopPropagation(); // Ngăn event lan truyền
 
         const isOpen = this.notificationDropdown.classList.toggle('active');
         console.log('Dropdown is now:', isOpen ? 'OPEN' : 'CLOSED');
 
         if (isOpen) {
             this.animateBell();
+            // Cập nhật trạng thái cho NotificationManager
             if (window.notificationManager) {
                 window.notificationManager.isDropdownOpen = true;
             }
@@ -91,6 +92,7 @@ class AdminTemplate {
     }
 
     _onDocClick(e) {
+        // Chỉ đóng nếu click bên ngoài cả bell và dropdown
         if (
             !this.notificationBell?.contains(e.target) &&
             !this.notificationDropdown?.contains(e.target)
@@ -125,9 +127,8 @@ class AdminTemplate {
 // ===== Notification Manager =====
 class NotificationManager {
     constructor(config = {}) {
-        this.refreshInterval = config.refreshInterval || 30000;
-        // ✅ SỬA: Thêm /Webmarket/
-        this.apiEndpoint = config.apiEndpoint || '/Webmarket/admin/controller/get_notifications.php';
+        this.refreshInterval = config.refreshInterval || 30000; // 30s
+        this.apiEndpoint = config.apiEndpoint || '../controller/get_notifications.php';
         this.maxItems = config.maxItems || 10;
 
         this.lastCount = 0;
@@ -144,9 +145,11 @@ class NotificationManager {
     }
 
     init() {
+        // Lấy count ban đầu từ badge (nếu có)
         const badge = document.querySelector('.notification-badge');
         if (badge) this.lastCount = parseInt(badge.textContent) || 0;
 
+        // Auto-refresh + Visibility API
         document.addEventListener('visibilitychange', this._boundVisibility);
         this.startAutoRefresh();
 
@@ -198,11 +201,13 @@ class NotificationManager {
     }
 
     async refreshNotifications() {
+        // Nếu dropdown đang mở, tránh nhảy UI
         if (this.isDropdownOpen) return;
 
         this._abortInflight();
         this.inflight = new AbortController();
 
+        // Backoff nếu trước đó lỗi
         if (this.backoffMs > 0) {
             await new Promise((r) => setTimeout(r, this.backoffMs));
         }
@@ -221,6 +226,7 @@ class NotificationManager {
                 cache: 'no-store'
             });
 
+            // Nếu server hỗ trợ ETag và không đổi
             if (resp.status === 304) {
                 this._resetBackoff();
                 return;
@@ -230,6 +236,7 @@ class NotificationManager {
 
             const data = await resp.json();
 
+            // Lưu ETag (nếu có)
             const et = resp.headers.get('ETag');
             if (et) this.etag = et;
 
@@ -239,10 +246,12 @@ class NotificationManager {
                 return;
             }
 
+            // Chỉ cập nhật UI khi dữ liệu đổi
             const nextHash = this._stableHash({ c: data.count, n: data.notifications });
             if (nextHash !== this.lastDataHash) {
                 this.updateNotificationUI(data);
 
+                // Toast khi có thông báo mới
                 if (typeof data.count === 'number' && data.count > this.lastCount) {
                     this.showNewNotificationToast(data.count - this.lastCount);
                 }
@@ -378,6 +387,7 @@ class NotificationManager {
 
         toast.querySelector('.toast-close')?.addEventListener('click', () => this.removeToast(toast));
 
+        // Animate bell
         const bell = document.querySelector('#notification-bell i');
         if (bell) {
             bell.classList.add('bell-animate');
@@ -394,8 +404,9 @@ class NotificationManager {
     }
 }
 
-// ===== Khởi tạo =====
+// ===== Khởi tạo khi DOM sẵn sàng =====
 document.addEventListener('DOMContentLoaded', () => {
+    // Tránh khởi tạo nhiều lần
     if (window.adminTemplate) {
         console.warn('⚠️ AdminTemplate already initialized');
         return;
@@ -404,8 +415,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.adminTemplate = new AdminTemplate();
     window.notificationManager = new NotificationManager({
         refreshInterval: 30000,
-        // ✅ SỬA: Thêm /Webmarket/
-        apiEndpoint: '/Webmarket/admin/controller/get_notifications.php',
+        apiEndpoint: '../controller/get_notifications.php',
         maxItems: 10
     });
 

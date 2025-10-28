@@ -16,6 +16,7 @@ $keyword = isset($_GET['keyword']) ? trim($_GET['keyword']) : '';
 </head>
 <body>
 
+<!-- ✅ SỬA: Bỏ /Webmarket/ vì đã ở trong thư mục html -->
 <?php include 'header.php'; ?>
 
 <main class="products-container">
